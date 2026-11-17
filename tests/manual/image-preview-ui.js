@@ -8,6 +8,8 @@
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "vaultbranch-images-"));
   const saved = { git: p.git, status: p.status, ready: p.ready, scheduleRefresh: p.scheduleRefresh, lastAutoRefresh: p.lastAutoRefresh };
   const results = [], fixtures = [];
+  const web = require("electron").remote.getCurrentWebContents(), debug = web.debugger, attached = debug.isAttached();
+  if (!attached) debug.attach("1.3");
   const check = (value, name) => { if (!value) throw Error(name); results.push(name); };
   const git = async (...args) => (await exec(saved.git.binary, args, { cwd: root, windowsHide: true })).stdout;
   const write = async (name, bytes) => { await fs.mkdir(path.dirname(path.join(root, name)), { recursive: true }); await fs.writeFile(path.join(root, name), bytes); };
@@ -69,13 +71,23 @@
     check(Math.abs(zoomImage.getBoundingClientRect().width - initial.width) < 1 && !preview.classList.contains("is-zoomed"), "double click resets the initial fit");
     const electron = require("electron").remote;
     electron.getCurrentWindow().show(); electron.getCurrentWindow().focus();
-    const web = electron.getCurrentWebContents();
     const input = (type, data, expected) => new Promise((resolve, reject) => {
       const timer = setTimeout(() => { document.removeEventListener(expected, done, true); reject(Error(`Missing native ${expected} event`)); }, 3000);
-      const done = event => { clearTimeout(timer); document.removeEventListener(expected, done, true); setTimeout(() => resolve(event), 0); };
-      document.addEventListener(expected, done, true); web.sendInputEvent({ type, ...data });
+      const done = event => {
+        if (Math.abs(event.clientX - data.x) > 1 || Math.abs(event.clientY - data.y) > 1) return;
+        clearTimeout(timer); document.removeEventListener(expected, done, true); setTimeout(() => resolve(event), 0);
+      };
+      document.addEventListener(expected, done, true);
+      const command = { type: { mouseDown: "mousePressed", mouseUp: "mouseReleased", mouseMove: "mouseMoved", mouseWheel: "mouseWheel" }[type],
+        x: data.x, y: data.y, button: data.button || "none", clickCount: data.clickCount || 0,
+        buttons: type === "mouseDown" || data.modifiers?.includes("leftButtonDown") ? 1 : 0 };
+      if (type === "mouseWheel") Object.assign(command, { deltaX: data.deltaX || 0, deltaY: -data.deltaY });
+      debug.sendCommand("Input.dispatchMouseEvent", command).catch(error => {
+        clearTimeout(timer); document.removeEventListener(expected, done, true); reject(error);
+      });
     });
     const point = { x: Math.round(initial.x + initial.width / 2), y: Math.round(initial.y + initial.height / 2) };
+    await input("mouseMove", point, "pointermove");
     const nativeWheel = await input("mouseWheel", { ...point, deltaX: 0, deltaY: 200, canScroll: true }, "wheel");
     check(nativeWheel.isTrusted && preview.classList.contains("is-zoomed"), "native trusted mouse wheel enlarges the hovered image");
     // Use a larger scale so this small fixture overflows its pane and can pan.
@@ -84,7 +96,8 @@
     const down = await input("mouseDown", { ...point, button: "left", clickCount: 1 }, "pointerdown");
     const move = await input("mouseMove", { x: point.x + 40, y: point.y, modifiers: ["leftButtonDown"] }, "pointermove");
     await input("mouseUp", { x: point.x + 40, y: point.y, button: "left", clickCount: 1 }, "pointerup");
-    check(down.isTrusted && move.isTrusted && new DOMMatrix(zoomImage.style.transform).m41 > xBefore, "native mouse drag pans the enlarged image");
+    check(down.isTrusted && move.isTrusted && new DOMMatrix(zoomImage.style.transform).m41 > xBefore,
+      `native mouse drag pans the enlarged image (target=${down.target === zoomImage}, x=${xBefore}→${new DOMMatrix(zoomImage.style.transform).m41}, pane=${preview.clientWidth}, image=${zoomImage.offsetWidth})`);
     check(!preview.hasPointerCapture(down.pointerId), "mouse release ends pointer capture");
     for (let n = 0; n < 8; n++) await input("mouseWheel", { ...point, deltaX: 0, deltaY: -200, canScroll: true }, "wheel");
     check(Math.abs(zoomImage.getBoundingClientRect().width - initial.width) < 1 && !preview.classList.contains("is-zoomed"), "native wheel down returns to the original fit without shrinking below it");
@@ -149,5 +162,6 @@
     p.scheduleRefresh = saved.scheduleRefresh; p.lastAutoRefresh = saved.lastAutoRefresh;
     if (source) { source.collapsed = collapsed; source.selected = selected; source.renderSnapshot = null; }
     await p.refresh(); await fs.rm(root, { recursive: true, force: true });
+    if (!attached && debug.isAttached()) debug.detach();
   }
 })()
