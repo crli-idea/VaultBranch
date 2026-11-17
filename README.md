@@ -15,18 +15,18 @@ Git source control inside Obsidian. Desktop only; requires Git and a vault initi
 - **Editor options**: diff folding and navigation, optional JSON/Markdown syntax highlighting, date insertion and Chinese/English UI.
 - **Note tables**: optionally render tables without a preceding blank line in Reading view and Live Preview, with native table source styles.
 
-## Current performance · 1.0.7
+## Current performance · 1.0.8
 
-Local Windows / Obsidian 1.15.0, compared with 1.0.6. Medians in ms; unused-string cleanup carries no operation-speedup claim.
+Local Windows / Obsidian 1.15.0, compared with 1.0.7. Medians in ms; this conflict-editor feature release makes no speedup claim.
 
 | Measurement | ms | Samples |
 | --- | ---: | --- |
-| Plugin reload (warm cache) | 12.1 | 5 |
-| Click → Staged / Changed page ready | 141.7 / 98.8 | 20 each |
-| Changed 1.6 MB JSON: type / Enter / Backspace | 5.1 / 4.4 / 1.0 | 5 each |
-| Changed 1.28 MB Markdown: type / Enter / Backspace | 5.5 / 3.4 / 14.1 | 5 each |
+| Plugin reload (warm cache) | 27.8 | 5 |
+| Click → Staged / Changed page ready | 312.4 / 222.1 | 20 each |
+| Changed 1.6 MB JSON: type / Enter / Backspace | 9.2 / 9.7 / 2.7 | 5 each |
+| Changed 1.28 MB Markdown: type / Enter / Backspace | 13.5 / 11.6 / 16.2 | 5 each |
 
-Table compatibility defaults off. Switching includes CPU sampling; typing measures native input to document update. [Environment, ranges, comparison and reproduction](https://github.com/li-cr/VaultBranch/blob/1.0.7/docs/performance/1.0.7.md) · [Tag 1.0.7](https://github.com/li-cr/VaultBranch/releases/tag/1.0.7).
+Table compatibility defaults off. Switching includes CPU sampling; typing measures native input to document update. [Environment, ranges, comparison and reproduction](https://github.com/li-cr/VaultBranch/blob/1.0.8/docs/performance/1.0.8.md) · [Tag 1.0.8](https://github.com/li-cr/VaultBranch/releases/tag/1.0.8).
 
 ## Feedback
 

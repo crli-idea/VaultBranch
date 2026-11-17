@@ -15,18 +15,18 @@
 - **编辑辅助**：差异折叠与跳转、可选 JSON/Markdown 语法高亮、日期插入、中英文界面。
 - **笔记表格兼容**：可选支持表格前无空行的阅读与实时预览，源码沿用原生表格样式。
 
-## 当前性能 · 1.0.7
+## 当前性能 · 1.0.8
 
-本地 Windows / Obsidian 1.15.0，与 1.0.6 对比。中位数，单位 ms；本次仅清理未使用文案，不宣称操作提速。
+本地 Windows / Obsidian 1.15.0，与 1.0.7 对比。中位数，单位 ms；本次为冲突编辑功能更新，不宣称提速。
 
 | 测试项目 | ms | 样本数 |
 | --- | ---: | --- |
-| 插件重载（缓存已预热） | 12.1 | 5 |
-| 点击 → Staged / Changed 页面就绪 | 141.7 / 98.8 | 各 20 |
-| Changed 1.6 MB JSON: 输入 / 换行 / 删除 | 5.1 / 4.4 / 1.0 | 各 5 |
-| Changed 1.28 MB Markdown: 输入 / 换行 / 删除 | 5.5 / 3.4 / 14.1 | 各 5 |
+| 插件重载（缓存已预热） | 27.8 | 5 |
+| 点击 → Staged / Changed 页面就绪 | 312.4 / 222.1 | 各 20 |
+| Changed 1.6 MB JSON: 输入 / 换行 / 删除 | 9.2 / 9.7 / 2.7 | 各 5 |
+| Changed 1.28 MB Markdown: 输入 / 换行 / 删除 | 13.5 / 11.6 / 16.2 | 各 5 |
 
-表格兼容默认关闭。切换包含 CPU 采样；修改测量原生输入至文档更新。[环境、范围、对比及复现](https://github.com/li-cr/VaultBranch/blob/1.0.7/docs/performance/1.0.7.md) · [Tag 1.0.7](https://github.com/li-cr/VaultBranch/releases/tag/1.0.7)。
+表格兼容默认关闭。切换包含 CPU 采样；修改测量原生输入至文档更新。[环境、范围、对比及复现](https://github.com/li-cr/VaultBranch/blob/1.0.8/docs/performance/1.0.8.md) · [Tag 1.0.8](https://github.com/li-cr/VaultBranch/releases/tag/1.0.8)。
 
 ## 反馈与建议
 
