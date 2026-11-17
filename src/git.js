@@ -33,7 +33,10 @@ class GitService {
         timeout,
         maxBuffer,
         // Stash uses Git's own pathspecs to remove saved untracked files.
-        env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_PAGER: "cat", GIT_EDITOR: "true", GIT_SEQUENCE_EDITOR: "true", GIT_LITERAL_PATHSPECS: ["check-ignore", "stash"].includes(args[0]) ? "0" : "1" },
+        env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_PAGER: "cat", GIT_EDITOR: "true", GIT_SEQUENCE_EDITOR: "true", GIT_LITERAL_PATHSPECS: ["check-ignore", "stash"].includes(args[0]) ? "0" : "1",
+          // Background status must not acquire an optional index-refresh lock
+          // that can make a concurrent explicit stage/resolve operation fail.
+          ...(args[0] === "status" ? { GIT_OPTIONAL_LOCKS: "0" } : {}) },
       }, (error, stdout, stderr) => {
         end?.();
         if (!error || (allowDiffExit && error.code === 1)) return resolve(stdout);

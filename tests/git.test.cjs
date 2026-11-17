@@ -35,6 +35,31 @@ async function write(root, file, text) {
   await fs.writeFile(path.join(root, file), text);
 }
 
+test("read-only status preserves index bytes while detecting edits and keeps staging locks", async () => {
+  const { root, service } = await fixture();
+  await write(root, "note.md", "original\n"); git(root, "add", "."); git(root, "commit", "-m", "base");
+  const indexPath = path.join(root, ".git/index"), before = await fs.readFile(indexPath);
+  // Force a stale cached stat without changing content. Plain git status would
+  // refresh the on-disk index here, briefly taking index.lock in the background.
+  const old = new Date("2020-01-01T00:00:00Z");
+  await fs.utimes(path.join(root, "note.md"), old, old);
+  assert.equal((await service.status({ includeStash: false })).files.length, 0);
+  assert.deepEqual(await fs.readFile(indexPath), before);
+  await write(root, "note.md", "modified\n");
+  assert.equal((await service.status({ includeStash: false })).files[0].worktree, "M");
+  assert.deepEqual(await fs.readFile(indexPath), before);
+  const lockPath = path.join(root, ".git/index.lock");
+  await fs.writeFile(lockPath, "owned by another writer\n", { flag: "wx" });
+  try {
+    assert.equal((await service.status({ includeStash: false })).files[0].worktree, "M");
+    await assert.rejects(service.stage(["note.md"]), /index\.lock/);
+    assert.equal(await fs.readFile(lockPath, "utf8"), "owned by another writer\n");
+  } finally { await fs.unlink(lockPath); }
+  await service.stage(["note.md"]);
+  assert.equal(git(root, "show", ":note.md"), "modified\n");
+  assert.equal((await service.status({ includeStash: false })).files[0].index, "M");
+});
+
 test("image previews keep raw bytes and live HEAD/index/worktree versions without changing the index", async () => {
   const { root, service } = await fixture();
   const status = service.status.bind(service);
