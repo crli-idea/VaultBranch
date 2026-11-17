@@ -3,11 +3,16 @@
   const p = app.plugins.plugins.vaultbranch;
   if (!p || [...p.editors.sessions.values()].some(s => s.dirty || s.saving)) throw Error("Save drafts first.");
   if (p.diffNavigationTask) await p.diffNavigationTask;
-  const saved = { logging: p.settings.performanceLogging, limit: p.settings.performanceLogLimit, autosave: p.settings.diffAutosave, ensureReady: p.ensureReady, editorSession: p.editors.acquire };
+  await p.refreshTask; p.refreshSoon?.cancel();
+  const saved = { logging: p.settings.performanceLogging, limit: p.settings.performanceLogLimit, autosave: p.settings.diffAutosave, ensureReady: p.ensureReady, editorSession: p.editors.acquire,
+    scheduleRefresh: p.scheduleRefresh, lastAutoRefresh: p.lastAutoRefresh };
   const files = [], results = [];
   const check = (value, name) => { if (!value) throw Error(name); results.push(name); };
   let leaf, staged, release, pending, modal, clipboardWrite;
   try {
+    // Fixture staging bypasses the normal mutation coordinator. Keep background
+    // status refreshes from competing for its temporary index lock.
+    p.scheduleRefresh = () => {}; p.lastAutoRefresh = Date.now() + 3600000;
     await p.updateSetting("diffAutosave", false); await p.updateSetting("performanceLogging", false);
     check(!p.timingLog?.records.length, "disabled logging starts with no records");
     for (const suffix of [".json", ".md"]) files.push(await app.vault.create(`vb-timing-${Date.now()}${suffix}`, suffix === ".json" ? '{"value":1}\n' : "# Note\n"));
@@ -74,6 +79,7 @@
     if (staged) await p.git.run(["rm", "--cached", "--force", "--", staged]);
     for (const file of files) if (app.vault.getAbstractFileByPath(file.path)) await app.vault.trash(file, false);
     await p.updateSetting("diffAutosave", saved.autosave); await p.updateSetting("performanceLogging", saved.logging); await p.updateSetting("performanceLogLimit", saved.limit);
+    p.scheduleRefresh = saved.scheduleRefresh; p.lastAutoRefresh = saved.lastAutoRefresh;
     await p.refresh();
   }
 })()
