@@ -26,7 +26,12 @@
           const done = pending; pending = null;
           const end = performance.now();
           if (!done.event?.trusted) { done.reject(Error("Missing trusted native editing event")); return result; }
-          if (this.composing || !document.hasFocus()) { done.reject(Error("Focus/composition changed during native edit; discard this run")); return result; }
+          if (this.composing || !document.hasFocus()) {
+            window.__vbEditFailure = { path: name, round: done.round, operation: done.operation, event: done.event,
+              focused: document.hasFocus(), editorFocused: this.hasFocus, composing: this.composing,
+              visibility: document.visibilityState, completedSamples: samples };
+            done.reject(Error("Focus/composition changed during native edit; discard this run")); return result;
+          }
           if (done.operation === "newline" ? this.state.doc.lines <= before.lines : done.operation === "delete" ? this.state.doc.length >= before.length : this.state.doc.length <= before.length) {
             done.reject(Error("Native event did not perform the requested edit")); return result;
           }
