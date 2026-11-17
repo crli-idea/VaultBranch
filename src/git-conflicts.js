@@ -37,16 +37,17 @@ async function conflictVersions(git, filePath) {
     if (result.includes("\0")) versions.binary = true;
   } catch (error) { if (error.code !== "ENOENT") throw error; }
   if (versions.binary) throw new Error(t("二进制冲突请使用外部工具解决。"));
-  return { ...versions, result, operation: status.operation,
+  return { ...versions, result, operation: status.operation, signature: `${status.operation || ""}\0${stages.join("\0")}`,
     oursLabel: status.operation === "rebase" ? t("上游版本") : t("本地版本"),
     theirsLabel: status.operation === "rebase" ? t("本地版本") : t("传入版本") };
 }
 
-async function resolveConflict(git, filePath, content, expected) {
+async function resolveConflict(git, filePath, content, expected, expectedIndex) {
   git.checkPaths([filePath]);
-  if (/^(<{7}|={7}|>{7}|\|{7})(?: |$)/m.test(content)) throw new Error(t("结果中仍有冲突标记，请编辑完成后再标记已解决。"));
+  if (/^\ufeff?(<{7,}|={7,}|>{7,}|\|{7,})(?:[ \t]|$)/m.test(content)) throw new Error(t("结果中仍有冲突标记，请编辑完成后再标记已解决。"));
   const versions = await git.conflictVersions(filePath);
   if (expected !== undefined && versions.result !== expected) throw new Error(t("冲突文件已被其他编辑器修改，请重新打开冲突视图。"));
+  if (expectedIndex !== undefined && versions.signature !== expectedIndex) throw new Error(t("冲突索引已改变，请放弃草稿并重新载入。"));
   if (versions.ours === null || versions.theirs === null) throw new Error(t("涉及删除的冲突请在外部工具中处理，再暂存结果。"));
   const absolute = path.resolve(git.root, filePath);
   const [actualParent, realRoot] = await Promise.all([fs.realpath(path.dirname(absolute)), fs.realpath(git.root)]);

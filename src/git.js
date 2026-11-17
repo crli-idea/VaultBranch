@@ -418,7 +418,7 @@ class GitService {
 
   conflictVersions(filePath) { return conflicts.conflictVersions(this, filePath); }
 
-  resolveConflict(filePath, content, expected) { return conflicts.resolveConflict(this, filePath, content, expected); }
+  resolveConflict(filePath, content, expected, expectedIndex) { return conflicts.resolveConflict(this, filePath, content, expected, expectedIndex); }
 
   continueOperation() { return conflicts.continueOperation(this); }
 

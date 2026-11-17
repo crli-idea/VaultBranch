@@ -1,63 +1,108 @@
 "use strict";
 
+const { Notice, Modal } = require("obsidian");
 const { t } = require("../i18n.js");
 const { CONFLICT_VIEW, el, button, GitView } = require("./shared.js");
+const { ConflictEditor } = require("./conflict-editor.js");
+const { resolution, resolutionDirty } = require("../conflict-document.js");
 
 class ConflictView extends GitView {
-  constructor(leaf, plugin) { super(leaf, plugin); this.filePath = ""; }
+  constructor(leaf, plugin) { super(leaf, plugin); this.filePath = ""; plugin.conflictDrafts ||= new Map(); }
   getViewType() { return CONFLICT_VIEW; }
   getDisplayText() { return this.filePath ? t`冲突 · ${this.filePath.split("/").at(-1)}` : t("VaultBranch · 解决冲突"); }
   getIcon() { return "git-merge"; }
-  getState() { return { filePath: this.filePath }; }
-  async setState(state, result) { this.filePath = state.filePath || ""; await this.render(); await super.setState(state, result); }
-  async render({ preserveDraft = false } = {}) {
-    const draft = preserveDraft ? this.contentEl.querySelector(".vaultbranch-conflict-result")?.value : undefined;
-    const request = ++this.request;
+  getState() {
+    if (this.saved) return { filePath: this.filePath };
+    const draft = (this.loadedPath === this.filePath ? this.editor?.snapshot() : null) || this.plugin.conflictDrafts.get(this.filePath);
+    return { filePath: this.filePath, resolutionDraft: draft && resolutionDirty(draft.state, draft.initialDoc)
+      ? { text: draft.state.sliceDoc(), blocks: draft.state.field(resolution), expected: draft.expected, expectedIndex: draft.expectedIndex, versions: draft.versions } : undefined };
+  }
+  async setState(state, result) {
+    if (this.saving) return;
+    this.retainDraft();
+    this.filePath = state.filePath || "";
+    this.restoredDraft = typeof state.resolutionDraft?.text === "string" && typeof state.resolutionDraft.expected === "string" ? state.resolutionDraft : null;
+    await this.render(); await super.setState(state, result);
+  }
+  retainDraft() {
+    if (!this.editor || this.saved) return;
+    const draft = this.editor.snapshot();
+    if (!this.editor.dirty()) this.plugin.conflictDrafts.delete(this.loadedPath);
+    else this.plugin.conflictDrafts.set(this.loadedPath, draft);
+  }
+  destroyEditor() { this.editor?.destroy(); this.editor = null; }
+  async onClose() { this.retainDraft(); this.destroyEditor(); await super.onClose(); }
+
+  async render({ discardDraft = false } = {}) {
+    if (this.saving) return;
+    const request = ++this.request, filePath = this.filePath;
     this.contentEl.inert = true;
     this.contentEl.setAttribute("aria-busy", "true");
-    const filePath = this.filePath;
-    const scroll = this.contentEl.querySelector(".vaultbranch-conflict-body")?.scrollTop || 0;
     const page = this.contentEl.ownerDocument.createElement("div");
     const header = el(page, "div", "vaultbranch-diff-header");
     el(header, "div", "vaultbranch-diff-path", filePath);
     const body = el(page, "div", "vaultbranch-conflict-body");
+    let editor;
     try {
       if (!filePath) return;
       await this.plugin.ensureReady();
       const versions = await this.plugin.git.conflictVersions(filePath);
       if (request !== this.request) return;
-      const expected = draft !== undefined && this.loadedPath === this.filePath ? this.expectedResult : versions.result;
-      this.loadedPath = this.filePath;
-      this.expectedResult = expected;
-      const sources = el(body, "div", "vaultbranch-conflict-sources");
-      const resultLabel = el(body, "div", "vaultbranch-conflict-label", t("解决结果 · 可直接编辑"));
-      const result = el(body, "textarea", "vaultbranch-conflict-result");
-      result.setAttribute("aria-label", t("冲突解决结果")); result.spellcheck = false; result.value = draft ?? versions.result;
-      for (const [key, label] of [["ours", versions.oursLabel], ["theirs", versions.theirsLabel]]) {
-        const pane = el(sources, "section", "vaultbranch-conflict-pane");
-        const title = el(pane, "div", "vaultbranch-conflict-label"); el(title, "span", "", label);
-        const take = button(title, "check", t`使用${label}`, () => { result.value = versions[key] || ""; }, t("使用此版本"));
-        take.disabled = versions[key] === null;
-        const text = el(pane, "textarea", "vaultbranch-conflict-source"); text.readOnly = true; text.spellcheck = false; text.value = versions[key] === null ? t("（此版本已删除文件）") : versions[key]; text.setAttribute("aria-label", label);
+      // Capture after the read: typing during an awaited refresh must survive.
+      if (discardDraft) this.plugin.conflictDrafts.delete(filePath);
+      else this.retainDraft();
+      let draft = this.plugin.conflictDrafts.get(filePath);
+      if (!draft && !discardDraft && this.restoredDraft) {
+        draft = { serialized: this.restoredDraft, expected: this.restoredDraft.expected, expectedIndex: this.restoredDraft.expectedIndex, versions: this.restoredDraft.versions };
       }
-      const base = el(body, "details", "vaultbranch-conflict-base"); el(base, "summary", "", t("共同祖先")); el(base, "pre", "", versions.base || t("（无共同祖先内容）"));
-      body.insertBefore(base, resultLabel);
-      const save = button(header, "check", t("保存并暂存解决结果"), async () => {
-        const saved = await this.plugin.mutate(t("解决冲突"), () => this.plugin.git.resolveConflict(filePath, result.value, expected));
-        if (saved) { save.disabled = true; result.readOnly = true; resultLabel.textContent = t("已保存并暂存 · 在侧栏点击继续"); }
-      }, t("保存并暂存"));
-      if (versions.ours === null || versions.theirs === null) {
-        save.disabled = true;
-        el(body, "div", "vaultbranch-empty", t("此冲突涉及删除，请在外部 Git 工具中处理。"));
-      }
-    } catch (error) { if (request === this.request) el(body, "div", "vaultbranch-empty is-error", error.message); }
-    finally {
+      editor = new ConflictEditor(this, body, header, versions, draft);
+      this.restoredDraft = null;
+    } catch (error) {
+      editor?.destroy(); editor = null;
+      if (request === this.request) el(body, "div", "vaultbranch-empty is-error", error.message);
+    } finally {
       if (request === this.request) {
+        if (!discardDraft) this.retainDraft();
+        this.destroyEditor();
+        this.editor = editor; this.loadedPath = filePath; this.saved = false;
         this.contentEl.replaceChildren(...(filePath ? page.childNodes : []));
-        body.scrollTop = scroll;
         this.contentEl.inert = false;
         this.contentEl.removeAttribute("aria-busy");
+      } else editor?.destroy();
+    }
+  }
+
+  reloadResolution() {
+    if (this.saving) return;
+    const editor = this.editor;
+    if (!editor?.dirty()) return this.render({ discardDraft: true });
+    const modal = new Modal(this.app);
+    modal.titleEl.textContent = t("放弃草稿并重新载入？");
+    el(modal.contentEl, "p", "", this.filePath);
+    const actions = el(modal.contentEl, "div", "vaultbranch-confirm-actions");
+    button(actions, null, t("取消"), () => modal.close(), t("取消"));
+    button(actions, null, t("放弃草稿"), async () => {
+      modal.close(); if (this.editor === editor && !this.saving) await this.render({ discardDraft: true });
+    }, t("放弃草稿")).classList.add("mod-warning");
+    modal.open();
+  }
+
+  async saveResolution() {
+    const editor = this.editor, filePath = this.loadedPath;
+    if (!editor || editor.save.disabled || this.saving || this.plugin.busy || this.plugin.mutationPending) return false;
+    this.saving = true; editor.lock(true);
+    try {
+      const content = editor.result.state.sliceDoc();
+      const saved = await this.plugin.mutate(t("解决冲突"), () => this.plugin.git.resolveConflict(filePath, content, editor.expected, editor.expectedIndex));
+      if (saved) {
+        this.plugin.conflictDrafts.delete(filePath); this.saved = true;
+        if (this.editor === editor) editor.resultLabel.textContent = t("已保存并暂存 · 在侧栏点击继续");
       }
+      return saved;
+    } catch (error) { new Notice(error.message); return false; }
+    finally {
+      this.saving = false;
+      if (this.editor === editor && !this.saved) editor.lock(false);
     }
   }
 }

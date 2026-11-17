@@ -61,6 +61,7 @@ module.exports = class MyGitPlugin extends Plugin {
       view.destroyEditor();
     }
     for (const view of this.views(FILE_HISTORY_VIEW)) { view.request++; view.detailRequest++; view.destroyMerge(); }
+    for (const view of this.views(CONFLICT_VIEW)) { view.request++; view.retainDraft(); view.destroyEditor(); }
     this.editors.stop();
   }
 
@@ -114,6 +115,10 @@ module.exports = class MyGitPlugin extends Plugin {
       return true;
     }
     await this.saveData(this.settings);
+    if (key === "conflictLocalFirst") {
+      for (const view of this.views(CONFLICT_VIEW)) view.editor?.updateOrder();
+      return true;
+    }
     if (key === "performanceLogging" || key === "performanceLogLimit") return true;
     if (key === "diffAutosave") for (const session of this.editors.sessions.values()) session.setEnabled(value);
     if (key === "collapseUnchanged") for (const view of this.views(DIFF_VIEW, FILE_HISTORY_VIEW)) view.updateCollapse();

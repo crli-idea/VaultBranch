@@ -99,11 +99,12 @@
     const conflictLeaf = await p.openConflict(fixtures[0][0]); leaves.push(conflictLeaf); const conflict = conflictLeaf.view;
     const conflictIndex = await git("ls-files", "--stage");
     for (let n = 0; n < 5; n++) {
-      const result = conflict.contentEl.querySelector(".vaultbranch-conflict-result"); result.value = `manual resolution ${n}\n`;
+      const result = conflict.editor.result;
+      result.dispatch({ changes: { from: 0, to: result.state.doc.length, insert: `manual resolution ${n}\n` } });
       const held = hold(p.git, "conflictVersions"), pending = conflict.render({ preserveDraft: true }); await held.started; await frame();
-      check(conflict.contentEl.querySelector(".vaultbranch-conflict-result") === result && result.isConnected, `conflict refresh ${n}: retains the complete result while reading`);
+      check(conflict.editor.result === result && result.dom.isConnected, `conflict refresh ${n}: retains the complete result while reading`);
       held.release(); await pending; held.restore();
-      check(conflict.contentEl.querySelector(".vaultbranch-conflict-result").value === `manual resolution ${n}\n`, `conflict refresh ${n}: retains manual resolution`);
+      check(conflict.editor.result.state.doc.toString() === `manual resolution ${n}\n`, `conflict refresh ${n}: retains manual resolution`);
     }
     check(await git("ls-files", "--stage") === conflictIndex, "conflict browsing does not stage the resolution");
     {
@@ -122,6 +123,7 @@
   } finally {
     for (const restore of restores.reverse()) restore();
     for (const leaf of leaves.reverse()) await leaf.detach();
+    p.conflictDrafts?.delete("small/note.md");
     p.git = saved.git; p.status = saved.status; p.ready = saved.ready; p.error = saved.error; p.busy = false; p.scheduleRefresh = saved.scheduleRefresh; p.lastAutoRefresh = saved.lastAutoRefresh;
     await p.refresh();
     await fs.rm(root, { recursive: true, force: true });

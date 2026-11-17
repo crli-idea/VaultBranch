@@ -86,6 +86,7 @@ class MyGitSettings extends PluginSettingTab {
       }
       updatePreview();
     } else if (id === "other") {
+      new Setting(containerEl).setName(t("冲突版本顺序")).setDesc(t("仅交换显示位置；采用左侧和右侧跟随当前版本，本地结果和撤销历史保持不变。")).addDropdown(input => input.addOptions({ other: t("传入 / 上游在左，本地结果在右"), local: t("本地结果在左，传入 / 上游在右") }).setValue(p.settings.conflictLocalFirst ? "local" : "other").onChange(value => p.updateSetting("conflictLocalFirst", value === "local")));
       new Setting(containerEl).setName(t("兼容无空行表格")).setDesc(t("默认关闭。在阅读模式和实时预览中显示紧接正文的表格，源码保留表格高亮，不修改笔记原文。实时预览中点击表格可编辑源码。")).addToggle(input => input.setValue(p.settings.renderLooseTables).onChange(value => p.updateSetting("renderLooseTables", value)));
       new Setting(containerEl).setName(t("日期触发字符串")).setDesc(t("在笔记中输入此字符串后自动替换为当前日期时间。留空关闭；前面须为空格或行首。")).addText((input) => input.setPlaceholder("@date").setValue(p.settings.dateTrigger).onChange((value) => p.updateSetting("dateTrigger", value.trim())));
       const datePreview = new Setting(containerEl).setName(t("日期时间格式"));

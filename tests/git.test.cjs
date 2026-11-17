@@ -916,7 +916,13 @@ test("non-fast-forward push is rejected without force; pull conflict can be reso
   await assert.rejects(() => service.continueOperation(), /未解决/);
   await assert.rejects(() => service.resolveConflict("conflict.md", versions.result), /冲突标记/);
   await assert.rejects(() => service.resolveConflict("conflict.md", "resolved\n", "stale content"), /其他编辑器/);
-  await service.resolveConflict("conflict.md", "remote edit\nlocal edit\n", versions.result);
+  await assert.rejects(() => service.resolveConflict("conflict.md", "\ufeff<<<<<<<<<<<<<< HEAD\nleft\n==============\nright\n>>>>>>>>>>>>>> side\n", versions.result), /冲突标记/);
+  const unmerged = git(root, "ls-files", "--unmerged");
+  execFileSync("git", ["update-index", "--index-info"], { cwd: root, input: unmerged.replace("100644", "100755"), windowsHide: true });
+  await assert.rejects(() => service.resolveConflict("conflict.md", "remote edit\nlocal edit\n", versions.result, versions.signature), /冲突索引/);
+  assert.equal(await fs.readFile(path.join(root, "conflict.md"), "utf8"), versions.result);
+  execFileSync("git", ["update-index", "--index-info"], { cwd: root, input: unmerged, windowsHide: true });
+  await service.resolveConflict("conflict.md", "remote edit\nlocal edit\n", versions.result, versions.signature);
   assert.equal(groupsFor((await service.status()).files).conflicts.length, 0);
   await write(root, "conflict.md", "late un-staged edit\n");
   await assert.rejects(() => service.continueOperation(), /未暂存/);

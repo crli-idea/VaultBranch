@@ -11,7 +11,7 @@ Git source control inside Obsidian. Desktop only; requires Git and a vault initi
 - **Image comparisons**: compare images in Changes, Staged and file history; zoom and pan. SVG defaults to preview with a source switch.
 - **Commit graph and file history**: explore branches, merges and past changes, including file renames.
 - **Branches and Stash**: create or switch branches, save changes and restore a selected stash.
-- **Conflict resolution**: compare local and incoming changes, edit the result, and continue or abort a rebase.
+- **Conflict resolution**: native two-pane comparison with an editable local result; accept either side or both per conflict, undo choices and swap pane order, then save and stage explicitly.
 - **Editor options**: diff folding and navigation, optional JSON/Markdown syntax highlighting, date insertion and Chinese/English UI.
 - **Note tables**: optionally render tables without a preceding blank line in Reading view and Live Preview, with native table source styles.
 
