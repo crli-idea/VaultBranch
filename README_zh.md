@@ -30,18 +30,18 @@
 
 仅支持桌面端。插件使用 Node.js 文件接口访问仓库文件及 Git 元数据，linked worktree 的元数据可能位于笔记库之外。通过 `execFile`、参数数组及 `shell: false` 调用本机 Git；Git 钩子和凭据助手沿用本机配置。这些能力拥有 Obsidian 的系统权限。仅在点击复制时写入提交哈希或调优日志，不读取剪贴板。Release 附带 GitHub 来源证明，用于验证构建来源，不会消除上述能力提示。
 
-## 当前性能 · 1.0.10
+## 当前性能 · 1.0.11
 
-本地 Windows / Obsidian 1.15.1，与 1.0.9 对比。中位数，单位 ms；本次为历史表格功能更新，不宣称提速。
+本地 Windows / Obsidian 1.15.1，与 1.0.10 对比。中位数，单位 ms；本次修复仓库迁移与审核问题，不宣称提速。
 
 | 测试项目 | ms | 样本数 |
 | --- | ---: | --- |
-| 插件重载（缓存已预热） | 12.2 | 5 |
-| 点击 → Staged / Changed 页面就绪 | 214.8 / 159.2 | 各 20 |
-| Changed 1.6 MB JSON: 输入 / 换行 / 删除 | 4.8 / 8.5 / 1.1 | 各 5 |
-| Changed 1.28 MB Markdown: 输入 / 换行 / 删除 | 6.5 / 5.1 / 6.4 | 各 5 |
+| 插件重载（缓存已预热） | 7.8 | 5 |
+| 点击 → Staged / Changed 页面就绪 | 190.6 / 136.4 | 各 20 |
+| Changed 1.6 MB JSON: 输入 / 换行 / 删除 | 5.1 / 4.2 / 1.1 | 各 5 |
+| Changed 1.28 MB Markdown: 输入 / 换行 / 删除 | 4.6 / 5.1 / 6.4 | 各 5 |
 
-表格兼容默认关闭。切换包含 CPU 采样；修改测量原生输入至文档更新。[环境、范围、对比及复现](https://github.com/crli-idea/VaultBranch/blob/1.0.10/docs/performance/1.0.10.md) · [Tag 1.0.10](https://github.com/crli-idea/VaultBranch/releases/tag/1.0.10)。
+表格兼容默认关闭。切换包含 CPU 采样；修改测量原生输入至文档更新。[环境、范围、对比及复现](https://github.com/crli-idea/VaultBranch/blob/1.0.11/docs/performance/1.0.11.md) · [Tag 1.0.11](https://github.com/crli-idea/VaultBranch/releases/tag/1.0.11)。
 
 ## 反馈与建议
 

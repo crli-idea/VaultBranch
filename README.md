@@ -30,18 +30,18 @@ Open **VaultBranch: Open Source Control sidebar** from the command palette. Clic
 
 Desktop only. The plugin uses Node.js filesystem access for repository files and Git metadata, including linked-worktree metadata outside the vault. It runs your installed Git through `execFile` with argument arrays and `shell: false`; Git hooks and credential helpers follow your local Git configuration. These capabilities run with Obsidian's OS permissions. It writes commit hashes or diagnostic logs to the clipboard only when you request Copy; it does not read the clipboard. Release assets receive GitHub provenance attestations, which verify build origin rather than remove these capability warnings.
 
-## Current performance · 1.0.10
+## Current performance · 1.0.11
 
-Local Windows / Obsidian 1.15.1, compared with 1.0.9. Medians in ms; this history-table feature release makes no speedup claim.
+Local Windows / Obsidian 1.15.1, compared with 1.0.10. Medians in ms; this repository/review fix makes no speedup claim.
 
 | Measurement | ms | Samples |
 | --- | ---: | --- |
-| Plugin reload (warm cache) | 12.2 | 5 |
-| Click → Staged / Changed page ready | 214.8 / 159.2 | 20 each |
-| Changed 1.6 MB JSON: type / Enter / Backspace | 4.8 / 8.5 / 1.1 | 5 each |
-| Changed 1.28 MB Markdown: type / Enter / Backspace | 6.5 / 5.1 / 6.4 | 5 each |
+| Plugin reload (warm cache) | 7.8 | 5 |
+| Click → Staged / Changed page ready | 190.6 / 136.4 | 20 each |
+| Changed 1.6 MB JSON: type / Enter / Backspace | 5.1 / 4.2 / 1.1 | 5 each |
+| Changed 1.28 MB Markdown: type / Enter / Backspace | 4.6 / 5.1 / 6.4 | 5 each |
 
-Table compatibility defaults off. Switching includes CPU sampling; typing measures native input to document update. [Environment, ranges, comparison and reproduction](https://github.com/crli-idea/VaultBranch/blob/1.0.10/docs/performance/1.0.10.md) · [Tag 1.0.10](https://github.com/crli-idea/VaultBranch/releases/tag/1.0.10).
+Table compatibility defaults off. Switching includes CPU sampling; typing measures native input to document update. [Environment, ranges, comparison and reproduction](https://github.com/crli-idea/VaultBranch/blob/1.0.11/docs/performance/1.0.11.md) · [Tag 1.0.11](https://github.com/crli-idea/VaultBranch/releases/tag/1.0.11).
 
 ## Feedback
 
