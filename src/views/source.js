@@ -76,17 +76,18 @@ class SourceControlView extends ItemView {
     this.messageEl.disabled = busy;
     this.commitButton.disabled = blocked || !staged || !message;
     this.pullButton.disabled = blocked || !status?.upstream;
-    this.pushButton.disabled = blocked || !status?.upstream;
+    this.pushButton.disabled = blocked;
     const canStash = !blocked && Boolean(status?.files.length);
     const canPop = !blocked && !status?.files.length && Boolean(status?.stash);
     this.stashButton.disabled = !canStash && !canPop;
-    const stashTitle = canPop ? t("恢复最近一次 Stash") : canStash ? t("Stash 当前修改（包含未跟踪文件）") : t("没有可 Stash 或恢复的修改");
+    const stashTitle = canPop ? t("Pop 最近一次 Stash（恢复并移除）") : canStash ? t("Stash 当前修改（包含未跟踪文件）") : t("没有可 Stash 或恢复的修改");
     this.stashButton.title = stashTitle;
     this.stashButton.setAttribute("aria-label", stashTitle);
     this.stashButton.classList.toggle("is-active", canPop);
     const reason = busy ? t("已有 Git 操作执行中，请稍候。") : !ready || !status ? t("仓库尚未就绪，请刷新状态。") : status.operation ? t`当前 ${status.operation} 尚未完成。请先解决冲突并继续，或中止本次操作。` : status.files.some((file) => file.conflict) ? t("请先解决冲突。") : !status.upstream ? t("当前分支未配置上游，暂不能 Pull / Push。") : "";
     this.pullButton.title = reason || `Pull (${this.plugin.settings.pullMethod})`;
-    this.pushButton.title = reason || `Push → ${status.upstream}`;
+    this.pushButton.title = blocked ? reason : status.upstream ? `Push → ${status.upstream}` : t("推送并设置上游…");
+    this.pushButton.setAttribute("aria-label", this.pushButton.title);
     this.commitButton.title = blocked ? reason : !staged ? t("暂存区为空，先点击文件旁的 +。") : !message ? t("请填写提交说明。") : t`Commit · 只提交暂存区 · Ctrl+Enter\n${message}`;
     this.refreshButton.disabled = busy;
     this.commitButton.classList.toggle("is-busy", busy);
@@ -104,7 +105,7 @@ class SourceControlView extends ItemView {
     el(this.branchEl, "span", "vaultbranch-branch-name", status?.branch || t("读取仓库中…"));
     if (status) el(this.branchEl, "span", "vaultbranch-sync-count", `↑ ${status.ahead}  ↓ ${status.behind}`);
     this.branchEl.title = status?.upstream ? t`上游 ${status.upstream} · ↑↓ 为上次 Fetch 的结果` : t("未设置上游分支");
-    this.noticeEl.textContent = busy ? `${this.plugin.busyLabel}…` : error || (status?.operation ? t`${status.operation} 尚未完成，Pull / Push 暂不可用。解决冲突后继续，或中止。` : status && !status.upstream ? t("当前分支没有上游，Pull / Push 暂不可用。") : "");
+    this.noticeEl.textContent = busy ? `${this.plugin.busyLabel}…` : error || (status?.operation ? t`${status.operation} 尚未完成，Pull / Push 暂不可用。解决冲突后继续，或中止。` : status && !status.upstream ? t("当前分支没有上游，点击 Push 选择远程并设置。") : "");
     this.noticeEl.classList.toggle("is-error", Boolean(error || status?.operation));
     this.noticeEl.hidden = !this.noticeEl.textContent;
     this.recoveryEl.replaceChildren();
@@ -181,7 +182,8 @@ class SourceControlView extends ItemView {
       node.setAttribute("role", "treeitem");
       node.setAttribute("aria-level", String(depth + 1));
       node.setAttribute("aria-expanded", String(!this.collapsed.has(key)));
-      const row = el(node, "button", "vaultbranch-folder");
+      const header = el(node, "div", "vaultbranch-folder-row");
+      const row = el(header, "button", "vaultbranch-folder");
       row.type = "button";
       row.title = folder.path;
       row.setAttribute("aria-expanded", String(!this.collapsed.has(key)));
@@ -189,6 +191,17 @@ class SourceControlView extends ItemView {
       setIcon(el(row, "span", "vaultbranch-file-icon"), this.collapsed.has(key) ? "folder-closed" : "folder-open");
       el(row, "span", "vaultbranch-file-name", name);
       row.addEventListener("click", () => this.toggle(key));
+      if (area !== "conflicts") {
+        const action = button(header, area === "staged" ? "minus" : "plus", area === "staged" ? t("取消暂存文件夹") : t("暂存文件夹"), () => {
+          const files = [];
+          const collect = branch => { files.push(...branch.files); for (const child of branch.folders.values()) collect(child); };
+          collect(folder);
+          return this.plugin.changeStage(files, area);
+        });
+        action.classList.add("vaultbranch-row-action");
+        action.dataset.gitAction = "stage";
+        action.disabled = this.plugin.busy;
+      }
       if (!this.collapsed.has(key)) {
         const children = el(node, "div", "vaultbranch-children");
         children.setAttribute("role", "group");

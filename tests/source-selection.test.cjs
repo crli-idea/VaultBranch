@@ -34,7 +34,7 @@ class Node {
 function harness() {
   const module = { exports: {} }, opened = [];
   const el = (parent, tag, classes, text) => {
-    const node = new Node(classes); node.textContent = text; parent.children.push(node); return node;
+    const node = new Node(classes); node.tag = tag; node.textContent = text; parent.children.push(node); return node;
   };
   const button = (parent, icon, label, callback) => {
     const node = el(parent, "button", "", label); node.addEventListener("click", callback); return node;
@@ -102,4 +102,34 @@ test("rebuilding after a real status change restores the exact selected group", 
   h.renderRows("staged", ["B.md"]); h.renderRows("unstaged", ["B.md", "C.md"]);
   assert.equal(h.rows().length, 3); assert.equal(h.selected().length, 1);
   assert.equal(h.selected()[0], h.rows()[1]);
+});
+
+test("folder actions include collapsed descendants in only their own group without toggling", () => {
+  const { treeFor, groupsFor } = require("../src/git-data.js");
+  const h = harness(), calls = [];
+  const files = [
+    { path: "Fig/a.md", index: "M", worktree: "M" },
+    { path: "Fig/deep/nested/data.json", index: " ", worktree: "D" },
+    { path: "Fig/deep/new.md", oldPath: "old.md", index: "R", worktree: " " },
+    { path: "Fig-other/skip.md", index: "M", worktree: "M" },
+    { path: "Fig/conflict.md", index: "U", worktree: "U", conflict: true },
+  ];
+  h.plugin.changeStage = (selected, area) => calls.push({ paths: Array.from(selected, file => file.path), area, old: selected.find(file => file.oldPath)?.oldPath });
+  h.view.toggle = () => { throw Error("Action toggled folder"); };
+  for (const area of ["staged", "unstaged", "conflicts"]) {
+    h.view.collapsed.add(`${area}:Fig`);
+    h.view.renderTree(h.view.treeEl, treeFor(groupsFor(files)[area]), area, 0);
+  }
+  const folders = h.view.treeEl.children.filter(node => node.dataset.path === "Fig");
+  for (const folder of folders) {
+    const row = folder.querySelector(".vaultbranch-folder-row");
+    assert.equal(row.children[0].tag, "button");
+    assert.equal(row.children[0].children.some(child => child.tag === "button"), false);
+    row.children[1]?.click();
+  }
+  assert.deepEqual(calls, [
+    { paths: ["Fig/a.md", "Fig/deep/new.md"], area: "staged", old: "old.md" },
+    { paths: ["Fig/a.md", "Fig/deep/nested/data.json"], area: "unstaged", old: undefined },
+  ]);
+  assert.equal(folders[2].querySelector(".vaultbranch-folder-row").children.length, 1, "conflict folder has no stage shortcut");
 });

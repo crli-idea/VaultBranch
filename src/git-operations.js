@@ -96,6 +96,7 @@ async function mutate(plugin, label, action) {
 }
 
 function runGit(plugin, method) {
+  if (method === "push" && !plugin.status?.upstream) return require("./push.js").choosePushTarget(plugin);
   return plugin.mutate(method === "stashPop" ? t("恢复 Stash") : method[0].toUpperCase() + method.slice(1), () => plugin.git[method]());
 }
 

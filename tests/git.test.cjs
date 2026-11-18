@@ -35,6 +35,51 @@ async function write(root, file, text) {
   await fs.writeFile(path.join(root, file), text);
 }
 
+test("first push selects a configured remote/branch, sets upstream and subsequent push uses it", async () => {
+  const { root, service } = await fixture();
+  const remote = await fs.mkdtemp(path.join(os.tmpdir(), "vaultbranch-publish-")); cleanup.push(remote);
+  git(remote, "init", "--bare");
+  await write(root, "note.md", "base\n"); await service.stage(["note.md"]); await service.commit("base");
+  await assert.rejects(service.pushTarget(), /没有配置远程/);
+  git(root, "remote", "add", "origin", remote);
+  const target = await service.pushTarget();
+  assert.deepEqual(target, { branch: "main", remotes: ["origin"] });
+  const destination = { remote: "origin", branch: "notes/published", localBranch: "main" };
+  await assert.rejects(service.push({ ...destination, branch: "--all" }), /有效/);
+  await assert.rejects(service.push({ ...destination, remote: remote }), /远程仓库已改变/);
+  await assert.rejects(service.push({ ...destination, localBranch: "wrong" }), /分支或上游已改变/);
+  await write(root, "unstaged.md", "leave alone\n");
+  const index = await fs.readFile(path.join(root, ".git/index"));
+  await service.push(destination);
+  assert.deepEqual(await fs.readFile(path.join(root, ".git/index")), index);
+  assert.equal(git(root, "config", "--get", "branch.main.remote").trim(), "origin");
+  assert.equal(git(root, "config", "--get", "branch.main.merge").trim(), "refs/heads/notes/published");
+  assert.equal(git(remote, "rev-parse", "refs/heads/notes/published"), git(root, "rev-parse", "HEAD"));
+  await assert.rejects(service.push(destination), /分支或上游已改变/);
+  await write(root, "note.md", "next\n"); await service.stage(["note.md"]); await service.commit("next");
+  await service.push();
+  assert.equal(git(remote, "rev-parse", "refs/heads/notes/published"), git(root, "rev-parse", "HEAD"));
+  git(root, "checkout", "--detach");
+  await assert.rejects(service.pushTarget(), /本地分支/);
+});
+
+test("first push refuses unborn branches and does not force overwrite remote history", async () => {
+  const { root, service } = await fixture();
+  const remote = await fs.mkdtemp(path.join(os.tmpdir(), "vaultbranch-publish-reject-")); cleanup.push(remote);
+  git(remote, "init", "--bare"); git(root, "remote", "add", "origin", remote);
+  await assert.rejects(service.pushTarget());
+  await write(root, "note.md", "base\n"); await service.stage(["note.md"]); await service.commit("base");
+  await service.push({ remote: "origin", branch: "main", localBranch: "main" });
+  const original = git(root, "rev-parse", "HEAD").trim();
+  await write(root, "note.md", "remote advance\n"); await service.stage(["note.md"]); await service.commit("remote advance"); await service.push();
+  const advanced = git(remote, "rev-parse", "refs/heads/main");
+  git(root, "checkout", "-b", "other", original);
+  await write(root, "note.md", "diverged\n"); await service.stage(["note.md"]); await service.commit("diverged");
+  await assert.rejects(service.push({ remote: "origin", branch: "main", localBranch: "other" }), /Push 被拒绝/);
+  assert.equal(git(remote, "rev-parse", "refs/heads/main"), advanced);
+  assert.equal((await service.status()).upstream, "");
+});
+
 test("read-only status preserves index bytes while detecting edits and keeps staging locks", async () => {
   const { root, service } = await fixture();
   await write(root, "note.md", "original\n"); git(root, "add", "."); git(root, "commit", "-m", "base");

@@ -142,9 +142,29 @@ class GitService {
     return this.run(["pull", this.pullMethod === "merge" ? "--no-rebase" : "--rebase", "--no-autostash", "--no-edit"], { timeout: 120000 });
   }
 
-  async push() {
+  async pushTarget() {
     const status = await this.status();
     this.assertNormal(status);
+    const branch = (await this.run(["symbolic-ref", "--quiet", "--short", "HEAD"]).catch(() => "")).trim();
+    if (!branch) throw new Error(t("请先切换到本地分支再推送。"));
+    try { await this.run(["rev-parse", "--verify", "HEAD"]); }
+    catch { throw new Error(t("当前分支还没有提交，请先提交后再推送。")); }
+    const remotes = (await this.run(["remote"])).trim().split("\n").filter(Boolean);
+    if (!remotes.length) throw new Error(t("没有配置远程仓库，请先添加 remote。"));
+    return { branch, remotes };
+  }
+
+  async push(destination = null) {
+    const status = await this.status();
+    this.assertNormal(status);
+    if (destination) {
+      const { remote, branch, localBranch } = destination;
+      const current = await this.pushTarget();
+      if (current.branch !== localBranch || status.upstream) throw new Error(t("分支或上游已改变，请重新选择推送目标。"));
+      if (!current.remotes.includes(remote)) throw new Error(t("远程仓库已改变，请重新选择。"));
+      await this.checkBranchName(branch);
+      return this.run(["push", "--set-upstream", "--", remote, `refs/heads/${localBranch}:refs/heads/${branch}`], { timeout: 120000 });
+    }
     if (!status.upstream) throw new Error(t("当前分支没有上游分支，请先通过终端设置 upstream。"));
     const remote = (await this.run(["config", "--get", `branch.${status.branch}.remote`])).trim();
     const target = (await this.run(["config", "--get", `branch.${status.branch}.merge`])).trim();

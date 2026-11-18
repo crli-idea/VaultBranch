@@ -3,6 +3,20 @@
 // Chinese source strings are the fallback; tagged templates keep values out of translation keys.
 let language = "zh";
 const english = {
+  "当前分支还没有提交，请先提交后再推送。": "The current branch has no commits. Commit before pushing.",
+  "Pop 最近一次 Stash（恢复并移除）": "Pop latest Stash (restore and remove)",
+  "暂存文件夹": "Stage folder",
+  "取消暂存文件夹": "Unstage folder",
+  "推送并设置上游…": "Push and set upstream…",
+  "推送并设置上游": "Push and set upstream",
+  "当前分支没有上游，点击 Push 选择远程并设置。": "No upstream. Click Push to select a remote and set it.",
+  "请先切换到本地分支再推送。": "Switch to a local branch before pushing.",
+  "没有配置远程仓库，请先添加 remote。": "No remotes configured. Add a remote first.",
+  "分支或上游已改变，请重新选择推送目标。": "The branch or upstream changed. Select the push target again.",
+  "远程仓库已改变，请重新选择。": "The remote changed. Select it again.",
+  "本地分支：{0}": "Local branch: {0}",
+  "远程仓库": "Remote",
+  "远程分支": "Remote branch",
   "上一处冲突": "Previous conflict",
   "下一处冲突": "Next conflict",
   "本地 · 合并结果": "Local · Merge result",
