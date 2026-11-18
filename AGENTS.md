@@ -2,7 +2,7 @@
 
 ## 项目与目录
 
-- 本仓库是 Obsidian 桌面 Git 插件 VaultBranch 的正式源码，远程仓库为 `li-cr/VaultBranch`。
+- 本仓库是 Obsidian 桌面 Git 插件 VaultBranch 的正式源码，远程仓库为 `crli-idea/VaultBranch`。
 - `src/main.js`：Obsidian 生命周期、设置更新和公共调用入口；通过回调向编辑会话提供当前 Git、设置和界面通知。
 - `src/plugin-events.js`：通过插件宿主注册事件、命令和定时器；`src/navigation.js` 负责视图打开、请求顺序和返回提交图；`src/git-operations.js` 负责刷新、草稿保存与 Git 操作协调。
 - `src/editor-sessions.js`：编辑会话的获取、共享、释放、草稿保留和普通/隐藏文件写入适配；`src/editor-document.js` 负责文档表示，`src/autosave.js` 负责保存调度和冲突保护。

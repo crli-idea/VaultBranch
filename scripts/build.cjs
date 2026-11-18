@@ -14,7 +14,7 @@ const { build } = require("esbuild");
     format: "cjs",
     target: "es2022",
     external: ["obsidian", "@codemirror/state", "@codemirror/view", "@codemirror/commands", "@codemirror/language", "@lezer/common", "@lezer/highlight", "@lezer/lr", ...builtinModules, ...builtinModules.map((name) => `node:${name}`)],
-    banner: { js: "/* VaultBranch | MIT License | https://github.com/li-cr/VaultBranch */" },
+    banner: { js: "/* VaultBranch | MIT License | https://github.com/crli-idea/VaultBranch */" },
   });
   const dist = path.join(root, "dist/vaultbranch");
   await fs.mkdir(dist, { recursive: true });

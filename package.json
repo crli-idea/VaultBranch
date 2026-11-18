@@ -1,13 +1,13 @@
 {
   "name": "vaultbranch",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "private": true,
   "description": "Git source control and a commit graph for Obsidian.",
   "license": "MIT",
   "author": "li-cr",
   "repository": {
     "type": "git",
-    "url": "https://github.com/li-cr/VaultBranch.git"
+    "url": "https://github.com/crli-idea/VaultBranch.git"
   },
   "scripts": {
     "check": "node scripts/validate.cjs",

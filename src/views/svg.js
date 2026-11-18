@@ -26,6 +26,7 @@ class SvgComparison {
     this.sourceEl = el(body, "div", "vaultbranch-svg-mode");
     this.sourceEl.hidden = true;
     this.renderSource = renderSource;
+    toolbar.classList.add("vaultbranch-svg-toolbar");
     this.toggle = button(toolbar, "code", t("查看 SVG 源码"), () => this.switchMode());
     this.toggle.classList.add("vaultbranch-svg-toggle");
     this.versions = prepared.versions;

@@ -22,4 +22,5 @@ for (const file of [...sourceFiles, "default-settings.json"]) {
   assert.doesNotMatch(fs.readFileSync(path.join(root, file), "utf8"), /C:[\\/]|my-git|note_test|createRequire/);
 }
 assert.doesNotMatch(fs.readFileSync(path.join(root, "styles.css"), "utf8"), /!\s*important\b/i, "Use scoped selectors or CSS variables instead of !important.");
+assert.doesNotMatch(fs.readFileSync(path.join(root, "styles.css"), "utf8"), /:has\s*\(/i, "Use explicit scoped classes instead of relational CSS selectors.");
 console.log("Manifest, version map, portable runtime and CSS validated.");

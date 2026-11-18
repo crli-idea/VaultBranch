@@ -41,7 +41,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           for file in main.js manifest.json styles.css; do
-            gh attestation verify "dist/vaultbranch/$file" --repo "$GITHUB_REPOSITORY"
+            gh attestation verify "dist/vaultbranch/$file" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
           done
       - uses: actions/upload-artifact@v4
         with:
