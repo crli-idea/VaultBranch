@@ -162,9 +162,9 @@ class HistoryView extends GitView {
   actionsFor(commit) {
     const p = this.plugin;
     if (commit.stash) return [
-      { title: t("应用此 Stash（保留记录）"), icon: "archive-restore", run: () => p.mutate(t("应用 Stash"), () => p.git.stashApply(commit)) },
-      { title: t("Pop 此 Stash（恢复并移除）"), icon: "archive-x", run: () => p.mutate("Pop Stash", () => p.git.stashPop(commit)) },
-      { title: t("Drop 此 Stash…"), icon: "trash-2", run: () => this.confirmStashDrop(commit) },
+      { title: "Apply", icon: "archive-restore", run: () => p.mutate(t("应用 Stash"), () => p.git.stashApply(commit)) },
+      { title: "Pop", icon: "archive-x", run: () => p.mutate("Pop Stash", () => p.git.stashPop(commit)) },
+      { title: "Drop", icon: "trash-2", run: () => this.confirmStashDrop(commit) },
     ];
     return [
       { title: t("从此提交创建分支…"), icon: "git-branch-plus", run: () => createBranch(p, commit) },
