@@ -84,7 +84,7 @@ class SourceControlView extends ItemView {
     this.stashButton.title = stashTitle;
     this.stashButton.setAttribute("aria-label", stashTitle);
     this.stashButton.classList.toggle("is-active", canPop);
-    const reason = busy ? t("已有 Git 操作执行中，请稍候。") : !ready || !status ? t("仓库尚未就绪，请刷新状态。") : status.operation ? t`当前 ${status.operation} 尚未完成。请先解决冲突并继续，或中止本次操作。` : status.files.some((file) => file.conflict) ? t("请先解决冲突。") : !status.upstream ? t("当前分支未配置上游，暂不能 Pull / Push。") : "";
+    const reason = busy ? t("已有 Git 操作执行中，请稍候。") : !ready || !status ? t("仓库尚未就绪，请刷新状态。") : status.operation ? t`当前 ${status.operation} 尚未完成。请先解决冲突并继续，或中止本次操作。` : status.files.some((file) => file.conflict) ? t("请先解决冲突。") : !status.upstream ? t("未设置上游分支") : "";
     this.pullButton.title = reason || `Pull (${this.plugin.settings.pullMethod})`;
     this.pushButton.title = blocked ? reason : status.upstream ? `Push → ${status.upstream}` : t("推送并设置上游…");
     this.pushButton.setAttribute("aria-label", this.pushButton.title);
