@@ -504,6 +504,26 @@ test("apply selected stash keeps records; a conflicting pop keeps the selected s
   assert.deepEqual((await service.stashHistory(100)).map((entry) => entry.hash), hashes);
 });
 
+test("drop selected stash re-resolves shifted numbers and preserves worktree and index", async () => {
+  const { root, service } = await fixture();
+  await write(root, "note.md", "base\n"); await service.stage(["note.md"]); await service.commit("base");
+  const entries = [];
+  for (const text of ["old", "selected", "latest"]) {
+    await write(root, "note.md", text + "\n"); await service.stash(); entries.push((await service.stashHistory(100))[0]);
+  }
+  await service.stashDrop(entries[0]);
+  await write(root, "note.md", "staged\n"); await service.stage(["note.md"]); await write(root, "note.md", "working\n");
+  const index = await fs.readFile(path.join(root, ".git/index"));
+  await service.stashDrop(entries[1]);
+  assert.deepEqual(await fs.readFile(path.join(root, ".git/index")), index);
+  assert.equal(await fs.readFile(path.join(root, "note.md"), "utf8"), "working\n");
+  assert.equal(git(root, "show", ":note.md"), "staged\n");
+  assert.deepEqual((await service.stashHistory(100)).map(entry => entry.hash), [entries[2].hash]);
+  await assert.rejects(service.stashDrop(entries[1]), /已被移除/);
+  await assert.rejects(service.stashDrop({ hash: "--all" }), /无效/);
+  assert.deepEqual((await service.stashHistory(100)).map(entry => entry.hash), [entries[2].hash]);
+});
+
 test("rebase onto selected commit moves current branch and preserves both branches' files", async () => {
   const { root, service } = await fixture();
   await write(root, "base.md", "base\n"); await service.stage(["base.md"]); await service.commit("base");

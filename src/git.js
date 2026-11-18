@@ -276,6 +276,7 @@ class GitService {
   stash() { return stash.stash(this); }
 
   stashPop(entry) { return stash.stashPop(this, entry); }
+  stashDrop(entry) { return stash.stashDrop(this, entry); }
   stashApply(entry) { return stash.stashApply(this, entry); }
 
   stashSelector(hash) { return stash.stashSelector(this, hash); }

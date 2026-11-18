@@ -6,6 +6,7 @@ const { el, button } = require("./views/shared.js");
 
 async function choosePushTarget(plugin) {
   try {
+    if (plugin.busy) { new Notice(t("已有 Git 操作执行中，请稍候。")); return; }
     await plugin.ensureReady();
     const { branch: localBranch, remotes } = await plugin.git.pushTarget();
     const modal = new Modal(plugin.app);

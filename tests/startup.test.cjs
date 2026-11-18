@@ -252,6 +252,7 @@ test("service initialization is shared and later operations use the replacement 
   assert.equal(count, 1); release(); await Promise.all([first, second]);
   assert.equal(p.ready, true);
   let pushed = 0;
+  p.status = { upstream: "origin/main" };
   p.git = { push: async () => { pushed++; return "new service"; } };
   assert.equal(await p.runGit("push"), true);
   assert.equal(pushed, 1);

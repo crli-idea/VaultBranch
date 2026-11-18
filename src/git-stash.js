@@ -22,6 +22,12 @@ function stashPop(git, entry = null) { return git.restoreStash(entry, true); }
 
 function stashApply(git, entry) { return git.restoreStash(entry, false); }
 
+async function stashDrop(git, entry) {
+  git.assertNormal(await git.status());
+  // Resolve the selected hash just before deletion: stash numbers can shift.
+  return git.run(["stash", "drop", await git.stashSelector(entry?.hash)]);
+}
+
 async function stashSelector(git, hash) {
   git.checkCommit(hash);
   const fields = (await git.run(["stash", "list", "-z", "--format=%H%x00%gd"])).split("\0");
@@ -68,4 +74,4 @@ async function stashHistory(git, limit) {
   return entries;
 }
 
-module.exports = { stashExists, stash, stashPop, stashApply, stashSelector, restoreStash, stashFiles, stashHistory };
+module.exports = { stashExists, stash, stashPop, stashApply, stashDrop, stashSelector, restoreStash, stashFiles, stashHistory };

@@ -3,6 +3,9 @@
 // Chinese source strings are the fallback; tagged templates keep values out of translation keys.
 let language = "zh";
 const english = {
+  "Drop 此 Stash…": "Drop this Stash…",
+  "Drop 此 Stash": "Drop this Stash",
+  "删除这条 Stash 记录，不恢复内容。工作区和暂存区保持不变。此操作无法在插件内撤销。": "Delete this Stash without restoring its contents. The worktree and index are unchanged. This cannot be undone in the plugin.",
   "当前分支还没有提交，请先提交后再推送。": "The current branch has no commits. Commit before pushing.",
   "Pop 最近一次 Stash（恢复并移除）": "Pop latest Stash (restore and remove)",
   "暂存文件夹": "Stage folder",

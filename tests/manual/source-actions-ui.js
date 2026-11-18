@@ -79,6 +79,26 @@
     check(await fs.readFile(path.join(repo, "Fig/note.md"), "utf8") === "latest stash\n", "Pop restores the selected stash content");
     const remaining = await p.git.stashHistory(100);
     check(remaining.length === 1 && remaining[0].hash === older.hash, "Pop removes only the selected stash and preserves older entries");
+    await view.render();
+    await click(view.bodyEl.querySelector(`[data-commit="${older.hash}"]`));
+    await wait(() => view.selected === older.hash && !view.detailsEl.inert && view.detailsEl.querySelector(".vaultbranch-history-actions"));
+    const drop = () => [...view.detailsEl.querySelectorAll(".vaultbranch-history-actions button")].find(node => /Drop/.test(node.textContent));
+    check(drop(), "selected Stash exposes Drop beside Apply and Pop");
+    await click(drop());
+    await wait(() => document.querySelector(".modal-container .mod-warning"));
+    let dialog = document.querySelector(".modal-container .modal");
+    await click(dialog.querySelector(".vaultbranch-confirm-actions button"));
+    check((await p.git.stashHistory(100)).some(entry => entry.hash === older.hash), "canceling Drop preserves the stash");
+    await click(drop()); await wait(() => document.querySelector(".modal-container .mod-warning"));
+    dialog = document.querySelector(".modal-container .modal");
+    // Simulate another stash changing numeric selectors while confirmation is open.
+    await p.git.stash(); const newest = (await p.git.stashHistory(100))[0];
+    await write("Fig/note.md", "keep current working change\n");
+    const beforeDrop = await fs.readFile(path.join(repo, ".git/index"));
+    await click(dialog.querySelector(".mod-warning"));
+    await wait(() => !p.busy && !dialog.isConnected);
+    check((await p.git.stashHistory(100)).length === 1 && (await p.git.stashHistory(100))[0].hash === newest.hash, "Drop resolves shifted stash numbers and deletes only the confirmed hash");
+    check(await fs.readFile(path.join(repo, "Fig/note.md"), "utf8") === "keep current working change\n" && beforeDrop.equals(await fs.readFile(path.join(repo, ".git/index"))), "Drop preserves both current working content and index bytes");
     return { results, fixtures: fixtures.map(([name, text]) => ({ name, bytes: Buffer.byteLength(text) })) };
   } finally {
     await wait(() => !p.busy); if (history) await history.detach();

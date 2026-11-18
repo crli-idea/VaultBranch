@@ -1,6 +1,6 @@
 "use strict";
 
-const { Menu } = require("obsidian");
+const { Menu, Modal } = require("obsidian");
 const { t } = require("../i18n.js");
 const { HISTORY_VIEW, el, button, GitView } = require("./shared.js");
 const { chooseBranch, createBranch } = require("../branches.js");
@@ -161,12 +161,29 @@ class HistoryView extends GitView {
     if (commit.stash) return [
       { title: t("应用此 Stash（保留记录）"), icon: "archive-restore", run: () => p.mutate(t("应用 Stash"), () => p.git.stashApply(commit)) },
       { title: t("Pop 此 Stash（恢复并移除）"), icon: "archive-x", run: () => p.mutate("Pop Stash", () => p.git.stashPop(commit)) },
+      { title: t("Drop 此 Stash…"), icon: "trash-2", run: () => this.confirmStashDrop(commit) },
     ];
     return [
       { title: t("从此提交创建分支…"), icon: "git-branch-plus", run: () => createBranch(p, commit) },
       { title: t("Rebase 当前分支到此提交…"), icon: "git-branch", run: () => p.confirmRebase(commit) },
       { title: t("Push 当前分支"), icon: "arrow-up", run: () => p.runGit("push") },
     ];
+  }
+
+  confirmStashDrop(commit) {
+    const modal = new Modal(this.app);
+    modal.titleEl.textContent = t("Drop 此 Stash");
+    el(modal.contentEl, "p", "", commit.subject);
+    el(modal.contentEl, "p", "", t("删除这条 Stash 记录，不恢复内容。工作区和暂存区保持不变。此操作无法在插件内撤销。"));
+    const actions = el(modal.contentEl, "div", "vaultbranch-confirm-actions");
+    const cancel = button(actions, null, t("取消"), () => modal.close(), t("取消"));
+    const confirm = button(actions, "trash-2", t("Drop 此 Stash"), async () => {
+      confirm.disabled = true;
+      try { if (await this.plugin.mutate("Drop Stash", () => this.plugin.git.stashDrop(commit))) modal.close(); }
+      finally { confirm.disabled = false; }
+    }, t("Drop 此 Stash"));
+    confirm.classList.add("mod-warning");
+    modal.open(); cancel.focus();
   }
 }
 
