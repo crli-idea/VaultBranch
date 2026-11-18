@@ -37,7 +37,7 @@ class SourceControlView extends ItemView {
       const menu = new Menu();
       menu.addItem((item) => item.setTitle(t("切换本地分支…")).setIcon("git-branch").setDisabled(this.plugin.busy).onClick(() => chooseBranch(this.plugin)));
       menu.addItem((item) => item.setTitle(t("创建并切换分支")).setIcon("git-branch-plus").setDisabled(this.plugin.busy).onClick(() => createBranch(this.plugin)));
-      menu.addItem((item) => item.setTitle("Fetch").setIcon("download").onClick(() => this.plugin.runGit("fetch")));
+      menu.addItem((item) => item.setTitle("Fetch").setIcon("download").setDisabled(this.plugin.busy).onClick(() => this.plugin.runGit("fetch")));
       menu.addItem((item) => item.setTitle(t("操作输出")).setIcon("scroll-text").onClick(() => this.plugin.showOutput()));
       menu.addItem((item) => item.setTitle(t("设置")).setIcon("settings").onClick(() => this.plugin.openSettings()));
       menu.showAtPosition({ x: header.getBoundingClientRect().right - 180, y: header.getBoundingClientRect().bottom });
@@ -61,6 +61,7 @@ class SourceControlView extends ItemView {
     this.recoveryEl = el(this.contentEl, "div", "vaultbranch-recovery");
     this.treeEl = el(this.contentEl, "div", "vaultbranch-tree");
     this.treeEl.setAttribute("aria-label", t("Git 文件改动"));
+    this.treeEl.addEventListener("keydown", event => this.navigateTree(event));
     this.render();
     await this.plugin.refreshSource();
   }
@@ -89,6 +90,7 @@ class SourceControlView extends ItemView {
     this.pushButton.title = blocked ? reason : status.upstream ? `Push → ${status.upstream}` : t("推送并设置上游…");
     this.pushButton.setAttribute("aria-label", this.pushButton.title);
     this.commitButton.title = blocked ? reason : !staged ? t("暂存区为空，先点击文件旁的 +。") : !message ? t("请填写提交说明。") : t`Commit · 只提交暂存区 · Ctrl+Enter\n${message}`;
+    for (const control of [this.pullButton, this.commitButton]) control.setAttribute("aria-label", control.title);
     this.refreshButton.disabled = busy;
     this.commitButton.classList.toggle("is-busy", busy);
   }
@@ -157,6 +159,7 @@ class SourceControlView extends ItemView {
     }
     if (!this.collapsed.has(key)) {
       const tree = el(group, "div", "vaultbranch-group-tree");
+      tree.dataset.area = area;
       tree.setAttribute("role", "tree");
       tree.setAttribute("aria-label", t`${t(LABELS[area])}文件`);
       this.renderTree(tree, treeFor(files), area, 0);
@@ -167,6 +170,27 @@ class SourceControlView extends ItemView {
     if (this.collapsed.has(key)) this.collapsed.delete(key);
     else this.collapsed.add(key);
     this.render();
+  }
+
+  navigateTree(event) {
+    const target = event.target.closest(".vaultbranch-folder, .vaultbranch-file-open");
+    if (!target || !["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const rows = [...this.treeEl.querySelectorAll(".vaultbranch-folder, .vaultbranch-file-open")];
+    const index = rows.indexOf(target), node = target.closest('[role="treeitem"]');
+    const folder = target.classList.contains("vaultbranch-folder"), expanded = node.getAttribute("aria-expanded") === "true";
+    event.preventDefault();
+    if (event.key === "ArrowRight" && folder && !expanded || event.key === "ArrowLeft" && folder && expanded) {
+      const area = target.closest("[data-area]").dataset.area, path = node.dataset.path;
+      this.toggle(`${area}:${path}`);
+      [...this.treeEl.querySelectorAll(".vaultbranch-folder-node")].find(item => item.dataset.path === path && item.closest("[data-area]").dataset.area === area)?.querySelector(".vaultbranch-folder").focus();
+      return;
+    }
+    const next = event.key === "ArrowDown" ? rows[Math.min(rows.length - 1, index + 1)]
+      : event.key === "ArrowUp" ? rows[Math.max(0, index - 1)]
+        : event.key === "Home" ? rows[0] : event.key === "End" ? rows.at(-1)
+          : event.key === "ArrowLeft" ? node.parentElement.closest(".vaultbranch-folder-node")?.querySelector(".vaultbranch-folder")
+            : folder && expanded ? rows[index + 1] : null;
+    next?.focus();
   }
 
   renderTree(parent, tree, area, depth) {

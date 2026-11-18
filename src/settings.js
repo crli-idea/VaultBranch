@@ -7,6 +7,25 @@ const { DEFAULT_SETTINGS, el } = require("./views/shared.js");
 
 class MyGitSettings extends PluginSettingTab {
   constructor(app, plugin) { super(app, plugin); this.plugin = plugin; this.activeTab = "general"; }
+  async save(input, key, value, read = () => this.plugin.settings[key]) {
+    const displayed = input.getValue();
+    let saved = false;
+    try { saved = await this.plugin.updateSetting(key, value); }
+    catch (error) { new Notice(error.message); }
+    if (input.getValue() === displayed) input.setValue(typeof displayed === "string" ? String(read()) : read());
+    return saved;
+  }
+
+  text(input, key, parse = value => value, after = () => {}) {
+    input.setValue(String(this.plugin.settings[key]));
+    input.inputEl.addEventListener("blur", async () => {
+      const value = parse(input.getValue());
+      if (value === undefined) input.setValue(String(this.plugin.settings[key]));
+      else if (await this.save(input, key, value)) after();
+    });
+    input.inputEl.addEventListener("keydown", event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); input.inputEl.blur(); } });
+  }
+
   display() {
     const { containerEl } = this;
     containerEl.empty();
@@ -46,19 +65,19 @@ class MyGitSettings extends PluginSettingTab {
     const p = this.plugin;
     if (id === "general") {
       new Setting(containerEl).setName(t("界面语言")).addDropdown((input) => input.addOptions({ zh: "简体中文", en: "English" }).setValue(p.settings.language).onChange(async (value) => {
-        if (await p.updateSetting("language", value)) this.display();
+        if (await this.save(input, "language", value)) this.display();
       }));
       new Setting(containerEl).setName(t("刷新间隔（秒）")).addText(input => {
         input.inputEl.type = "number"; input.inputEl.min = "1"; input.inputEl.max = "300";
-        input.setValue(String(p.settings.refreshSeconds)).onChange(value => p.updateSetting("refreshSeconds", Math.max(1, Math.min(300, Number(value) || DEFAULT_SETTINGS.refreshSeconds))));
+        this.text(input, "refreshSeconds", value => integer(value, 1, 300, DEFAULT_SETTINGS.refreshSeconds));
       });
-      new Setting(containerEl).setName(t("启动时打开侧栏")).addToggle(input => input.setValue(p.settings.openOnStartup).onChange(value => p.updateSetting("openOnStartup", value)));
+      new Setting(containerEl).setName(t("启动时打开侧栏")).addToggle(input => input.setValue(p.settings.openOnStartup).onChange(value => this.save(input, "openOnStartup", value)));
     } else if (id === "git") {
-      new Setting(containerEl).setName(t("Git 路径")).setDesc(t("留空自动检测。仅当本机 Git 不在 PATH 中时填写 Git 可执行文件的完整路径。")).addText((input) => input.setPlaceholder(t("自动检测")).setValue(p.settings.gitPath).onChange((value) => p.updateSetting("gitPath", value.trim())));
-      new Setting(containerEl).setName(t("拉取方式")).setDesc(t("默认 rebase，遇到冲突会停下，解决后继续。")).addDropdown((input) => input.addOptions({ rebase: "Rebase", merge: "Merge" }).setValue(p.settings.pullMethod).onChange((value) => p.updateSetting("pullMethod", value)));
-      new Setting(containerEl).setName(t("历史加载条数")).addText(input => {
+      new Setting(containerEl).setName(t("Git 路径")).setDesc(t("留空自动检测。仅当本机 Git 不在 PATH 中时填写 Git 可执行文件的完整路径。按 Enter 或移开焦点后生效。")).addText(input => { input.setPlaceholder(t("自动检测")); this.text(input, "gitPath", value => value.trim()); });
+      new Setting(containerEl).setName(t("拉取方式")).setDesc(t("默认 rebase，遇到冲突会停下，解决后继续。")).addDropdown((input) => input.addOptions({ rebase: "Rebase", merge: "Merge" }).setValue(p.settings.pullMethod).onChange((value) => this.save(input, "pullMethod", value)));
+      new Setting(containerEl).setName(t("历史加载条数")).setDesc(t("提交图每次加载的条数。文件历史每次加载 50 条。")).addText(input => {
         input.inputEl.type = "number"; input.inputEl.min = "10"; input.inputEl.max = "1000";
-        input.setValue(String(p.settings.historyLimit)).onChange(value => p.updateSetting("historyLimit", Math.max(10, Math.min(1000, Number(value) || DEFAULT_SETTINGS.historyLimit))));
+        this.text(input, "historyLimit", value => integer(value, 10, 1000, DEFAULT_SETTINGS.historyLimit));
       });
       const tracking = new Setting(containerEl).setName(t("配置文件版本管理")).setDesc(t("检查 data.json 是否被 Git 忽略…"));
       void p.ensureReady().then(() => p.git.settingsTracking()).then((state) => {
@@ -79,44 +98,39 @@ class MyGitSettings extends PluginSettingTab {
         ["hostname", t("主机名"), hostname(), t("留空自动读取当前电脑名称；迁移后自动使用新电脑名称。")],
       ]) {
         const setting = key === "commitMessage" ? preview : new Setting(containerEl).setName(name).setDesc(desc);
-        setting.addText((input) => input.setPlaceholder(placeholder).setValue(p.settings[key]).onChange(async (value) => {
-          await p.updateSetting(key, key === "hostname" ? value.trim() : value);
-          updatePreview();
-        }));
+        setting.addText(input => { input.setPlaceholder(placeholder); this.text(input, key, value => key === "hostname" ? value.trim() : value, updatePreview); });
       }
       updatePreview();
     } else if (id === "other") {
-      new Setting(containerEl).setName(t("冲突版本顺序")).setDesc(t("仅交换显示位置；采用左侧和右侧跟随当前版本，本地结果和撤销历史保持不变。")).addDropdown(input => input.addOptions({ other: t("传入 / 上游在左，本地结果在右"), local: t("本地结果在左，传入 / 上游在右") }).setValue(p.settings.conflictLocalFirst ? "local" : "other").onChange(value => p.updateSetting("conflictLocalFirst", value === "local")));
-      new Setting(containerEl).setName(t("兼容无空行表格")).setDesc(t("默认关闭。在阅读模式和实时预览中显示紧接正文的表格，源码保留表格高亮，不修改笔记原文。实时预览中点击表格可编辑源码。")).addToggle(input => input.setValue(p.settings.renderLooseTables).onChange(value => p.updateSetting("renderLooseTables", value)));
-      new Setting(containerEl).setName(t("日期触发字符串")).setDesc(t("在笔记中输入此字符串后自动替换为当前日期时间。留空关闭；前面须为空格或行首。")).addText((input) => input.setPlaceholder("@date").setValue(p.settings.dateTrigger).onChange((value) => p.updateSetting("dateTrigger", value.trim())));
+      new Setting(containerEl).setName(t("冲突版本顺序")).setDesc(t("仅交换显示位置；采用左侧和右侧跟随当前版本，本地结果和撤销历史保持不变。")).addDropdown(input => input.addOptions({ other: t("传入 / 上游在左，本地结果在右"), local: t("本地结果在左，传入 / 上游在右") }).setValue(p.settings.conflictLocalFirst ? "local" : "other").onChange(value => this.save(input, "conflictLocalFirst", value === "local", () => p.settings.conflictLocalFirst ? "local" : "other")));
+      new Setting(containerEl).setName(t("兼容无空行表格")).setDesc(t("默认关闭。在阅读模式和实时预览中显示紧接正文的表格，源码保留表格高亮，不修改笔记原文。实时预览中点击表格可编辑源码。")).addToggle(input => input.setValue(p.settings.renderLooseTables).onChange(value => this.save(input, "renderLooseTables", value)));
+      new Setting(containerEl).setName(t("日期触发字符串")).setDesc(t("在笔记中输入此字符串后自动替换为当前日期时间。留空关闭；前面须为空白字符或行首。")).addText(input => { input.setPlaceholder("@date"); this.text(input, "dateTrigger", value => value.trim()); });
       const datePreview = new Setting(containerEl).setName(t("日期时间格式"));
       const showDatePreview = () => datePreview.setDesc(t`Moment 格式；固定文字用方括号包住，例如 [Time:] YYYY-MM-DD HH:mm:ss。预览：${p.formatDate()}`);
-      datePreview.addText((input) => input.setPlaceholder(DEFAULT_SETTINGS.dateFormat).setValue(p.settings.dateFormat).onChange(async (value) => { await p.updateSetting("dateFormat", value); showDatePreview(); }));
+      datePreview.addText(input => { input.setPlaceholder(DEFAULT_SETTINGS.dateFormat); this.text(input, "dateFormat", value => value, showDatePreview); });
       showDatePreview();
       new Setting(containerEl).setName(t("插入日期时间快捷键")).setDesc(t("为 VaultBranch 的“插入当前日期时间”命令设置快捷键。")).addButton((input) => input.setButtonText(t("配置快捷键")).onClick(() => {
         this.app.setting.openTabById("hotkeys");
         const tab = this.app.setting.activeTab;
         if (typeof tab?.setQuery === "function") tab.setQuery(`${p.manifest.name}: ${t("插入当前日期时间")}`);
       }));
-      new Setting(containerEl).setName("Diff autosave").setDesc(t("默认关闭。开启后停止输入 500 ms 自动保存；关闭时按 Ctrl/Cmd+S 或点击保存。切换文件保留草稿，Git 操作前请先保存。")).addToggle((input) => input.setValue(p.settings.diffAutosave).onChange((value) => p.updateSetting("diffAutosave", value)));
-      new Setting(containerEl).setName(t("折叠未修改内容")).setDesc(t("默认开启，使用 CodeMirror 原生 collapseUnchanged，改动前后各保留 3 行。点击折叠提示可展开。")).addToggle(input => input.setValue(p.settings.collapseUnchanged).onChange(value => p.updateSetting("collapseUnchanged", value)));
-      new Setting(containerEl).setName(t("显示差异跳转按钮")).setDesc(t("默认开启。在左右差异页和文件历史右上角显示 ↑ / ↓，跳转到上一处或下一处差异。")).addToggle(input => input.setValue(p.settings.showDiffNavigation).onChange(value => p.updateSetting("showDiffNavigation", value)));
-      new Setting(containerEl).setName(t("差异语法高亮")).setDesc(t("默认关闭。开启后按扩展名高亮 JSON 和 Markdown；超过 20 万字符或单行超过 1 万字符时使用纯文本。保留差异背景、草稿和撤销历史。")).addToggle(input => input.setValue(p.settings.syntaxHighlighting).onChange(value => p.updateSetting("syntaxHighlighting", value)));
-      new Setting(containerEl).setName(t("调优：记录操作耗时")).setDesc(t("默认关闭。记录差异文件打开的点击、排队、Git、编辑器和帧时间；仅保存在本机内存，不记录正文。关闭或重载后清空。")).addToggle(input => input.setValue(p.settings.performanceLogging).onChange(value => p.updateSetting("performanceLogging", value)));
+      new Setting(containerEl).setName(t("差异自动保存")).setDesc(t("默认关闭。开启后停止输入 500 ms 自动保存；关闭时按 Ctrl/Cmd+S 或点击保存。切换文件保留草稿，Git 操作前请先保存。")).addToggle((input) => input.setValue(p.settings.diffAutosave).onChange((value) => this.save(input, "diffAutosave", value)));
+      new Setting(containerEl).setName(t("折叠未修改内容")).setDesc(t("默认开启，改动前后各保留 3 行。点击折叠提示可展开。")).addToggle(input => input.setValue(p.settings.collapseUnchanged).onChange(value => this.save(input, "collapseUnchanged", value)));
+      new Setting(containerEl).setName(t("显示差异跳转按钮")).setDesc(t("默认开启。在左右差异页和文件历史右上角显示 ↑ / ↓，跳转到上一处或下一处差异。")).addToggle(input => input.setValue(p.settings.showDiffNavigation).onChange(value => this.save(input, "showDiffNavigation", value)));
+      new Setting(containerEl).setName(t("差异语法高亮")).setDesc(t("默认关闭。开启后按扩展名高亮 JSON 和 Markdown；超过 20 万字符或单行超过 1 万字符时使用纯文本。保留差异背景、草稿和撤销历史。")).addToggle(input => input.setValue(p.settings.syntaxHighlighting).onChange(value => this.save(input, "syntaxHighlighting", value)));
+      new Setting(containerEl).setName(t("调优：记录操作耗时")).setDesc(t("默认关闭。记录差异文件打开的点击、排队、Git、编辑器和帧时间；仅保存在本机内存，不记录正文。关闭或重载后清空。")).addToggle(input => input.setValue(p.settings.performanceLogging).onChange(value => this.save(input, "performanceLogging", value)));
       new Setting(containerEl).setName(t("调优记录保留条数")).setDesc(t("默认 100 条；0 表示本次运行中不限条数。按 Enter 或移开焦点后生效，减少条数会移除较早记录。不限条数时内存占用会随记录增加。")).addText(input => {
         input.inputEl.type = "number"; input.inputEl.min = "0"; input.inputEl.step = "1";
-        input.setValue(String(p.settings.performanceLogLimit));
-        input.inputEl.addEventListener("change", () => {
-          const value = input.inputEl.value;
-          const limit = Number(value);
-          if (value.trim() && Number.isSafeInteger(limit) && limit >= 0) void p.updateSetting("performanceLogLimit", limit).catch(error => new Notice(error.message));
-        });
-        input.inputEl.addEventListener("blur", () => input.setValue(String(p.settings.performanceLogLimit)));
-        input.inputEl.addEventListener("keydown", event => { if (event.key === "Enter") input.inputEl.blur(); });
+        this.text(input, "performanceLogLimit", value => value.trim() && Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : undefined);
       });
       new Setting(containerEl).setName(t("调优记录")).addButton(input => input.setButtonText(t("查看记录")).onClick(() => p.showTimings()));
     }
   }
+}
+
+function integer(value, min, max, fallback) {
+  const number = value.trim() ? Number(value) : NaN;
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, Math.round(number))) : fallback;
 }
 
 module.exports = { MyGitSettings };

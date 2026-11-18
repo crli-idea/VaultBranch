@@ -3,6 +3,13 @@
 // Chinese source strings are the fallback; tagged templates keep values out of translation keys.
 let language = "zh";
 const english = {
+  "刷新冲突": "Refresh conflict",
+  "没有匹配的提交。": "No matching commits.",
+  "差异自动保存": "Diff autosave",
+  "默认开启，改动前后各保留 3 行。点击折叠提示可展开。": "On by default. Keep 3 context lines around changes. Click the collapsed region to expand.",
+  "提交图每次加载的条数。文件历史每次加载 50 条。": "Commits loaded per page in Git Graph. File history loads 50 commits per page.",
+  "留空自动检测。仅当本机 Git 不在 PATH 中时填写 Git 可执行文件的完整路径。按 Enter 或移开焦点后生效。": "Leave empty to detect automatically. Enter the full Git executable path only if Git is not on PATH. Apply with Enter or on blur.",
+  "在笔记中输入此字符串后自动替换为当前日期时间。留空关闭；前面须为空白字符或行首。": "Type this string in a note to insert the current date/time. Leave empty to disable; it must follow whitespace or start a line.",
   "调整{0}列宽": "Resize {0} column",
   "拖动或用方向键调整；双击恢复默认列宽。": "Drag or use arrow keys to resize; double-click to reset column widths.",
   "复制完整提交哈希": "Copy full commit hash",

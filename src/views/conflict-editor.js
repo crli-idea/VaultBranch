@@ -86,6 +86,7 @@ class ConflictEditor {
     this.mark.title = this.block?.handled ? t("标记未解决") : t("标记已解决");
     this.left.title = t`采用${this.localFirst ? t("本地 · 合并结果") : this.otherLabel}`;
     this.right.title = t`采用${this.localFirst ? this.otherLabel : t("本地 · 合并结果")}`;
+    for (const control of [this.mark, this.left, this.right]) control.setAttribute("aria-label", control.title);
     this.left.setAttribute("aria-pressed", String(Boolean(this.block?.handled && this.block.choice === (this.localFirst ? "local" : "other"))));
     this.right.setAttribute("aria-pressed", String(Boolean(this.block?.handled && this.block.choice === (this.localFirst ? "other" : "local"))));
     this.both.setAttribute("aria-pressed", String(Boolean(this.block?.handled && this.block.choice === "both")));

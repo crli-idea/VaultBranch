@@ -314,6 +314,7 @@
 .vaultbranch-history-filter,
 .vaultbranch-history-search { height: 28px; border-radius: 5px; }
 .vaultbranch-history-search { border-color: var(--background-modifier-border); }
+.vaultbranch-history-search-status { padding: 6px 12px; color: var(--text-muted); font-size: var(--font-ui-small); }
 .vaultbranch-history-columns { height: 30px; padding-right: 12px; background: var(--background-secondary-alt); font-weight: 600; }
 .workspace-leaf-content .vaultbranch-history-row { height: 36px; border-bottom-color: var(--background-modifier-border); transition: background-color .1s ease; }
 .workspace-leaf-content .vaultbranch-history-row.is-selected { box-shadow: inset 2px 0 var(--interactive-accent); }

@@ -12,7 +12,7 @@
     input.value = "2"; input.dispatchEvent(new Event("input", { bubbles: true }));
     check(p.settings.performanceLogLimit === beforeTyping, "typing the first digit of 250 does not prematurely trim records to two");
     const set = async value => {
-      input.value = value; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true }));
+      input.value = value; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("blur"));
       for (let n = 0; n < 100; n++) {
         if ((await p.loadData()).performanceLogLimit === p.settings.performanceLogLimit) return;
         await new Promise(resolve => setTimeout(resolve, 10));

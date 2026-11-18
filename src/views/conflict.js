@@ -40,7 +40,7 @@ class ConflictView extends GitView {
     this.contentEl.setAttribute("aria-busy", "true");
     const page = this.contentEl.ownerDocument.createElement("div");
     const header = el(page, "div", "vaultbranch-diff-header");
-    el(header, "div", "vaultbranch-diff-path", filePath);
+    el(header, "div", "vaultbranch-diff-path", filePath).title = filePath;
     const body = el(page, "div", "vaultbranch-conflict-body");
     let editor;
     try {
@@ -59,7 +59,10 @@ class ConflictView extends GitView {
       this.restoredDraft = null;
     } catch (error) {
       editor?.destroy(); editor = null;
-      if (request === this.request) el(body, "div", "vaultbranch-empty is-error", error.message);
+      if (request === this.request) {
+        el(body, "div", "vaultbranch-empty is-error", error.message);
+        button(header, "refresh-cw", t("刷新冲突"), () => this.render());
+      }
     } finally {
       if (request === this.request) {
         if (!discardDraft) this.retainDraft();

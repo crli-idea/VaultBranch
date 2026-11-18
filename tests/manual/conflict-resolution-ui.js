@@ -58,6 +58,11 @@
     check(ui && view.contentEl.querySelectorAll(".cm-editor").length === 2 && !view.contentEl.querySelector(".vaultbranch-conflict-result"), "exactly two native MergeView panes, with no third result editor");
     check(!/[<=>]{7}/m.test(body()) && body().includes("local five") && ui.save.disabled, "local result starts without markers but both conflicts remain unresolved");
     check(body().includes("automatic local change") && body().includes("automatic incoming change"), "initial result preserves automatically merged changes from both sides");
+    await click(ui.mark);
+    check(ui.mark.textContent === ui.mark.title && ui.mark.title === ui.mark.getAttribute("aria-label") && ui.mark.textContent.includes("未解决"), "resolved mark text, native hint and accessible label agree");
+    await click(ui.mark);
+    check(!ui.block.handled && ui.mark.title === ui.mark.getAttribute("aria-label"), "unresolved mark restores its text and accessible label");
+    check([ui.left, ui.right].every(button => button.title === button.getAttribute("aria-label")), "accept hints identify the actual displayed versions");
     check(ui.source.state.readOnly && !ui.result.state.readOnly && ui.source.state.doc.toString() === theirs, "incoming is the full read-only Git version; local result is editable");
     check(ui.rightLabel.textContent.includes("本地") && ui.counter.textContent.includes("1 / 2"), "local merge-result caption and first conflict are visible");
     await click(ui.next); check(ui.block.other === "incoming thirty-five\n", "next selects the second real conflict rather than an ordinary diff chunk");
@@ -195,6 +200,9 @@
     p.git.conflictVersions = async () => { throw Error("binary conflict fixture"); };
     await open(name); check(!view.editor && view.contentEl.textContent.includes("binary conflict fixture"), "unavailable conflict data displays an error without a partial editor");
     p.git.conflictVersions = async () => sample(synthetic);
+    await click(view.contentEl.querySelector(".vaultbranch-diff-header button"));
+    for (let n = 0; !view.editor && n < 200; n++) await pause(10);
+    check(Boolean(view.editor), "error-page refresh recovers the same conflict view without reopening a tab");
     await open(name); check(Boolean(ui), "opening another conflict recovers after a read failure");
     let release, started; const begunRead = new Promise(resolve => { started = resolve; });
     p.git.conflictVersions = async () => { started(); await new Promise(resolve => { release = resolve; }); return sample(synthetic); };

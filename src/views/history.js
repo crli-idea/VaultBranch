@@ -33,24 +33,29 @@ class HistoryView extends GitView {
       await this.plugin.ensureReady();
       const data = await this.plugin.git.historyData(this.limit, this.ref, force);
       if (request !== this.request) return;
-      const snapshot = JSON.stringify([this.plugin.settings.language, this.plugin.busy, this.selected, this.query, this.ref, this.limit]);
+      const busy = Boolean(this.plugin.busy || this.plugin.mutationPending);
+      const status = this.plugin.status;
+      const blocked = busy || Boolean(status?.operation) || Boolean(status?.files.some(file => file.conflict));
+      const snapshot = JSON.stringify([this.plugin.settings.language, busy, blocked, status?.files.length, this.selected, this.query, this.ref, this.limit]);
       if (data === this.renderedData && snapshot === this.renderedSnapshot && this.bodyEl?.isConnected) return;
       const scroll = { top: this.bodyEl?.scrollTop || 0, left: this.bodyEl?.scrollLeft || 0, detail: this.detailsEl?.scrollTop || 0 };
       const page = this.contentEl.ownerDocument.createElement("div");
       const toolbar = el(page, "div", "vaultbranch-history-toolbar");
       el(toolbar, "strong", "", "Git Graph");
-      button(toolbar, "git-branch", t("切换本地分支…"), () => chooseBranch(this.plugin));
-      button(toolbar, "git-branch-plus", t("创建并切换分支"), () => createBranch(this.plugin));
+      button(toolbar, "git-branch", t("切换本地分支…"), () => chooseBranch(this.plugin)).disabled = blocked;
+      button(toolbar, "git-branch-plus", t("创建并切换分支"), () => createBranch(this.plugin)).disabled = blocked;
       const branch = el(toolbar, "select", "vaultbranch-history-filter");
       branch.setAttribute("aria-label", t("历史分支"));
       el(branch, "option", "", t("全部分支")).value = "";
       const search = el(toolbar, "input", "vaultbranch-history-search");
       search.type = "search"; search.placeholder = t("搜索提交…"); search.value = this.query;
       search.setAttribute("aria-label", t("搜索提交"));
-      button(toolbar, "download", "Fetch", () => this.plugin.runGit("fetch"));
-      button(toolbar, "arrow-up", t("Push 当前分支"), () => this.plugin.runGit("push"));
-      button(toolbar, "archive", t("Stash 当前修改（含未跟踪文件）"), () => this.plugin.runGit("stash"));
-      button(toolbar, "refresh-cw", t("刷新历史"), () => this.render(true));
+      button(toolbar, "download", "Fetch", () => this.plugin.runGit("fetch")).disabled = busy;
+      button(toolbar, "arrow-up", t("Push 当前分支"), () => this.plugin.runGit("push")).disabled = blocked;
+      button(toolbar, "archive", t("Stash 当前修改（含未跟踪文件）"), () => this.plugin.runGit("stash")).disabled = blocked || !status?.files.length;
+      button(toolbar, "refresh-cw", t("刷新历史"), () => this.render(true)).disabled = busy;
+      const searchStatus = el(page, "div", "vaultbranch-history-search-status");
+      searchStatus.setAttribute("role", "status"); searchStatus.hidden = true;
       const body = el(page, "div", "vaultbranch-history-body");
       const details = el(page, "div", "vaultbranch-history-details");
       const { commits, branches, hasStash } = data;
@@ -78,7 +83,7 @@ class HistoryView extends GitView {
       for (const commit of commits) {
         const row = el(batch, "div", "vaultbranch-history-row");
         rows.push(row);
-        row.setAttribute("role", "row"); row.tabIndex = 0;
+        row.setAttribute("role", "row"); row.tabIndex = this.selected === commit.hash ? 0 : -1;
         row.setAttribute("aria-selected", String(this.selected === commit.hash));
         row.dataset.commit = commit.hash;
         row.classList.toggle("is-stash", Boolean(commit.stash));
@@ -90,7 +95,7 @@ class HistoryView extends GitView {
           const menu = new Menu();
           for (const action of this.actionsFor(commit)) {
             menu.addItem((item) => item.setTitle(action.title).setIcon(action.icon)
-              .setDisabled(this.plugin.busy).onClick(action.run));
+              .setDisabled(blocked).onClick(action.run));
           }
           menu.showAtMouseEvent(event);
         });
@@ -104,8 +109,16 @@ class HistoryView extends GitView {
         date.dateTime = commit.date; date.setAttribute("role", "gridcell");
         el(row, "span", "vaultbranch-history-author", commit.author).setAttribute("role", "gridcell");
         addCommitCopy(row, commit);
+        row.addEventListener("focus", () => {
+          body.querySelector('.vaultbranch-history-row[tabindex="0"]')?.setAttribute("tabindex", "-1");
+          row.tabIndex = 0;
+        });
         row.addEventListener("keydown", event => {
-          if (event.target === row && ["Enter", " "].includes(event.key)) { event.preventDefault(); row.click(); }
+          if (event.target !== row) return;
+          if (["Enter", " "].includes(event.key)) { event.preventDefault(); row.click(); return; }
+          const index = rows.indexOf(row);
+          const next = event.key === "ArrowDown" ? Math.min(rows.length - 1, index + 1) : event.key === "ArrowUp" ? Math.max(0, index - 1) : event.key === "Home" ? 0 : event.key === "End" ? rows.length - 1 : -1;
+          if (next >= 0) { event.preventDefault(); rows[next].focus(); }
         });
         row.onclick = async () => {
           const detailRequest = ++this.detailRequest;
@@ -121,7 +134,7 @@ class HistoryView extends GitView {
           el(details, "div", "vaultbranch-history-detail-title", `${commit.short} · ${commit.subject}`);
           const actions = el(details, "div", "vaultbranch-history-actions");
           for (const action of this.actionsFor(commit)) {
-            button(actions, action.icon, action.title, action.run, action.title).disabled = this.plugin.busy;
+            button(actions, action.icon, action.title, action.run, action.title).disabled = blocked;
           }
           try {
             if (failure) throw failure;
@@ -137,17 +150,22 @@ class HistoryView extends GitView {
         }
       }
       body.appendChild(batch);
+      if (!rows.some(row => row.tabIndex === 0)) rows[0].tabIndex = 0;
       const applySearch = () => {
         this.query = search.value;
         const query = this.query.trim().toLocaleLowerCase();
+        let matches = 0;
         for (const [index, row] of rows.entries()) {
           const match = !query || row.dataset.search.includes(query);
+          if (match) matches++;
           row.classList.toggle("is-dimmed", !match);
           // aria-label also triggers an Obsidian tooltip, duplicating title.
           // Keep the name from visible content and extra metadata descriptive.
           const commit = commits[index];
           row.setAttribute("aria-description", `${match ? "" : t("非搜索匹配：")}${commit.hash} · ${commit.date}`);
         }
+        searchStatus.textContent = query && !matches ? t("没有匹配的提交。") : "";
+        searchStatus.hidden = !searchStatus.textContent;
       };
       search.addEventListener("input", applySearch); applySearch();
       if (commits.length >= this.limit && this.limit < 1000) button(body, "chevrons-down", t("加载更多历史"), async () => { this.limit = Math.min(1000, this.limit + this.plugin.settings.historyLimit); await this.render(); }, t("加载更多"));
