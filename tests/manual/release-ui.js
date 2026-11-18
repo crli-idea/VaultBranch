@@ -26,7 +26,10 @@
     consoleErrors.push({ messages: args.map(value => value?.stack || String(value)), callsite: new Error("Console error during release checks").stack });
     return originalConsoleError.apply(this, args);
   };
-  const run = async file => await eval(await fs.readFile(path.join(options.sourceRoot, file), "utf8"));
+  const run = async file => {
+    try { return await eval(await fs.readFile(path.join(options.sourceRoot, file), "utf8")); }
+    catch (error) { throw Error(`${file}: ${error.stack || error.message}`); }
+  };
   const store = async (name, data) => { await fs.writeFile(path.join(options.outputDir, name + ".json"), JSON.stringify(data, null, 2)); return data; };
   async function install(source) {
     const plugin = manager.plugins.vaultbranch;
@@ -55,6 +58,11 @@
     reports.before = await measure("before", options.baselineBuild);
     reports.after = await measure("after", path.join(options.sourceRoot, "dist/vaultbranch"));
     for (const name of ["ui-consistency", "timing-settings-ui", "history-table-ui", "source-actions-ui", "shared-editor-ui", "diff-loading-ui", "chunk-revert-ui", "syntax-highlight-ui", "startup-ui", "diff-navigation-ui", "sidebar-selection-ui", "performance-timing-ui", "image-preview-ui", "svg-preview-ui", "loose-tables-ui", "file-history-ui", "history-editor-ui", "syntax-history-ui", "view-stability-ui", "conflict-resolution-ui"]) {
+      // Settings can live in a separate window; closing it does not immediately
+      // return native keyboard focus to the vault used by the next suite.
+      const remote = require("electron").remote;
+      remote.getCurrentWindow().show(); remote.getCurrentWindow().focus(); remote.getCurrentWebContents().focus();
+      await new Promise(resolve => setTimeout(resolve, 150));
       const result = await store(name, await run("tests/manual/" + name + ".js"));
       if (result.failed?.length || result.checks?.some(check => check.ok === false) || result.errors?.length) throw Error(name + " failed: " + JSON.stringify(result));
       checks.push({ name, checks: result.results?.length ?? result.checks?.length ?? 0 });

@@ -17,7 +17,8 @@
     const box = node.getBoundingClientRect(), point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2), button: "left", clickCount: 1 };
     let trusted; node.addEventListener("click", event => { trusted = event.isTrusted; }, { once: true });
     web.sendInputEvent({ type: "mouseDown", ...point }); web.sendInputEvent({ type: "mouseUp", ...point }); await pause(50);
-    check(trusted, "trusted native click: " + node.textContent.slice(0, 40) + " / " + (node.ownerDocument.elementFromPoint(point.x, point.y)?.outerHTML.slice(0, 160) || JSON.stringify(point)));
+    if (!trusted) throw Error("Native click missed: " + node.textContent.slice(0, 40) + " / " + (node.ownerDocument.elementFromPoint(point.x, point.y)?.outerHTML.slice(0, 160) || JSON.stringify(point)));
+    check(true, "trusted native click");
   };
   const key = async (node, keyCode, modifiers = []) => {
     node.focus(); const web = node.ownerDocument.defaultView.require("electron").remote.getCurrentWebContents();
