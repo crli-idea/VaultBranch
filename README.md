@@ -26,22 +26,24 @@ Install Git and initialize your vault as a Git repository (`git init` in the vau
 
 Open **VaultBranch: Open Source Control sidebar** from the command palette. Click a Changed file to compare and edit it; save with Ctrl/Cmd+S. Use **+** to stage a file or folder, enter a commit message, and commit the staged changes. Pull/Push synchronize with your configured remote; first Push lets you choose the remote and upstream. Open Git Graph to browse commits, or right-click a file for File history.
 
+Text settings apply with Enter or on blur; normalized numeric fields show the value actually used.
+
 ## Capabilities
 
 Desktop only. The plugin uses Node.js filesystem access for repository files and Git metadata, including linked-worktree metadata outside the vault. It runs your installed Git through `execFile` with argument arrays and `shell: false`; Git hooks and credential helpers follow your local Git configuration. These capabilities run with Obsidian's OS permissions. It writes commit hashes or diagnostic logs to the clipboard only when you request Copy; it does not read the clipboard. Release assets receive GitHub provenance attestations, which verify build origin rather than remove these capability warnings.
 
-## Current performance · 1.0.11
+## Current performance · 1.0.12
 
-Local Windows / Obsidian 1.15.1, compared with 1.0.10. Medians in ms; this repository/review fix makes no speedup claim.
+Local Windows / Obsidian 1.15.1, compared with 1.0.11. Medians in ms; this UI correctness release makes no speedup claim.
 
 | Measurement | ms | Samples |
 | --- | ---: | --- |
-| Plugin reload (warm cache) | 7.8 | 5 |
-| Click → Staged / Changed page ready | 190.6 / 136.4 | 20 each |
-| Changed 1.6 MB JSON: type / Enter / Backspace | 5.1 / 4.2 / 1.1 | 5 each |
-| Changed 1.28 MB Markdown: type / Enter / Backspace | 4.6 / 5.1 / 6.4 | 5 each |
+| Plugin reload (warm cache) | 9.3 | 5 |
+| Click → Staged / Changed page ready | 148.5 / 110.4 | 20 each |
+| Changed 1.6 MB JSON: type / Enter / Backspace | 4.8 / 5.5 / 1.4 | 5 each |
+| Changed 1.28 MB Markdown: type / Enter / Backspace | 5.2 / 4.6 / 4.5 | 5 each |
 
-Table compatibility defaults off. Switching includes CPU sampling; typing measures native input to document update. [Environment, ranges, comparison and reproduction](https://github.com/crli-idea/VaultBranch/blob/1.0.11/docs/performance/1.0.11.md) · [Tag 1.0.11](https://github.com/crli-idea/VaultBranch/releases/tag/1.0.11).
+Table compatibility defaults off. Switching includes CPU sampling; typing measures native input to document update. [Environment, ranges, comparison and reproduction](https://github.com/crli-idea/VaultBranch/blob/1.0.12/docs/performance/1.0.12.md) · [Tag 1.0.12](https://github.com/crli-idea/VaultBranch/releases/tag/1.0.12).
 
 ## Feedback
 
