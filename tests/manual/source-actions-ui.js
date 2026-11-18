@@ -15,13 +15,17 @@
   const wait = async predicate => { const deadline = Date.now() + 15000; while (!predicate()) { if (Date.now() > deadline) throw Error("UI operation timed out"); await pause(20); } };
   const click = async node => {
     if (!node) throw Error("Expected action control is missing");
+    const window = require("electron").remote.getCurrentWindow(); window.show(); window.focus(); web.focus();
     node.scrollIntoView({ block: "nearest" }); await pause(30);
     const box = node.getBoundingClientRect(); let trusted;
     node.addEventListener("click", event => { trusted = event.isTrusted; }, { once: true });
     const data = { x: box.x + box.width / 2, y: box.y + box.height / 2, button: "left", clickCount: 1 };
+    await web.debugger.sendCommand("Input.dispatchMouseEvent", { type: "mouseMoved", x: data.x, y: data.y });
     await web.debugger.sendCommand("Input.dispatchMouseEvent", { type: "mousePressed", ...data });
     await web.debugger.sendCommand("Input.dispatchMouseEvent", { type: "mouseReleased", ...data });
-    await pause(30); check(trusted, "trusted native action click");
+    await pause(30);
+    if (!trusted) throw Error("Native action click missed: " + JSON.stringify({ completed: results, target: node.outerHTML, hit: document.elementFromPoint(data.x, data.y)?.outerHTML.slice(0, 500), x: data.x, y: data.y }));
+    check(trusted, "trusted native action click");
   };
   const git = async (...args) => (await exec(saved.git.binary, args, { cwd: repo, windowsHide: true })).stdout;
   const write = async (name, text) => { await fs.mkdir(path.dirname(path.join(repo, name)), { recursive: true }); await fs.writeFile(path.join(repo, name), text); };
