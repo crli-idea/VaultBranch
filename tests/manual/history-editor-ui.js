@@ -32,8 +32,11 @@
   const historyItems=()=>[...document.querySelectorAll('.menu-item')].filter(e=>/File history|文件历史/.test(e.textContent));
   check(historyItems().length===1,'native editor right-click shows exactly one file history entry');
   document.body.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,clientX:10,clientY:10}));await pause(100);
-  const explorer=app.workspace.getLeavesOfType('file-explorer')[0]?.view;
-  const title=explorer?.containerEl.querySelector(`[data-path="${name}"]`);
+  const explorerLeaf=app.workspace.getLeavesOfType('file-explorer')[0],explorer=explorerLeaf?.view;
+  if(explorerLeaf){await app.workspace.revealLeaf(explorerLeaf);await explorer.revealInFolder(file);}
+  const deadline=performance.now()+5000;
+  let title;
+  while(!(title=explorer?.containerEl.querySelector(`[data-path="${name}"]`))&&performance.now()<deadline)await pause(20);
   check(title,'test note appears in file explorer');
   title.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:180,clientY:250}));await pause(150);
   check(historyItems().length===1,'native file explorer right-click shows exactly one file history entry');
