@@ -14,6 +14,7 @@
   const wait = async predicate => { const end = Date.now() + 10000; while (!predicate()) { if (Date.now() > end) throw Error("UI operation timed out"); await pause(15); } };
   const git = async (...args) => (await exec(saved.git.binary, args, { cwd: root, windowsHide: true })).stdout;
   const clipboard = navigator.clipboard, writeText = clipboard.writeText;
+  const initialNotices = new Set(document.querySelectorAll(".notice"));
   let leaf, reopened, fileHistory, copied, writes = 0;
   const mouse = async (type, x, y, extra = {}) => debug.sendCommand("Input.dispatchMouseEvent", { type, x, y, ...extra });
   const click = async node => {
@@ -55,7 +56,7 @@
     const body = view.bodyEl, headings = body.querySelector(".vaultbranch-history-columns"), handles = [...headings.querySelectorAll(".vaultbranch-column-resizer")];
     const widths = () => [...headings.children].slice(1).map(node => node.getBoundingClientRect().width);
     const originalNodes = [...body.querySelectorAll(".vaultbranch-history-row")];
-    p.saveData = async value => { writes++; return saved.saveData.call(p, value); };
+    p.saveData = async value => { const result = await saved.saveData.call(p, value); writes++; return result; };
     check(handles.length === 4, "all four data columns expose resize handles");
     for (const [i, delta] of [-40, 20, -20, 30].entries()) {
       handles[i].scrollIntoView({ block: "nearest", inline: "nearest" }); await pause(30);
@@ -88,7 +89,8 @@
     await debug.sendCommand("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowLeft", code: "ArrowLeft", windowsVirtualKeyCode: 37 });
     await wait(() => p.settings.historyColumnWidths[0] === previous - 5);
     check(p.settings.historyColumnWidths[0] === previous - 5, "resize handle supports keyboard adjustment");
-    keyboardHandle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); await wait(() => p.settings.historyColumnWidths === null); await pause(30);
+    keyboardHandle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await wait(() => p.settings.historyColumnWidths === null && !body.style.getPropertyValue("--vaultbranch-history-template") && !reopened.view.bodyEl.style.getPropertyValue("--vaultbranch-history-template"));
     check(!body.style.getPropertyValue("--vaultbranch-history-template") && !reopened.view.bodyEl.style.getPropertyValue("--vaultbranch-history-template"), "reset restores fluid default columns in every open graph");
     fileHistory = await p.openView("vaultbranch-file-history", { filePath: "note.md" }, app.workspace.getLeaf("tab"));
     check([...fileHistory.view.contentEl.querySelectorAll(".vaultbranch-file-history-meta")].some(node => /^2026\/01\/09 \d{2}:\d{2}:\d{2}$/.test(node.textContent)), "file history uses the same padded date and 24-hour time");
@@ -97,6 +99,9 @@
     return { results };
   } finally {
     clipboard.writeText = writeText; p.saveData = saved.saveData;
+    const notices = [...document.querySelectorAll(".notice")].filter(node => !initialNotices.has(node) && /^(已复制完整提交哈希|Full commit hash copied)$/.test(node.querySelector(".notice-message")?.textContent || ""));
+    for (const notice of notices) notice.click();
+    await wait(() => notices.every(notice => !notice.isConnected));
     await fileHistory?.detach(); await reopened?.detach(); await leaf?.detach();
     p.git = saved.git; p.status = saved.status; p.ready = saved.ready; p.error = saved.error; p.scheduleRefresh = saved.scheduleRefresh; p.lastAutoRefresh = saved.lastAutoRefresh;
     p.settings = saved.settings; await p.saveData(p.settings); await p.refresh();
