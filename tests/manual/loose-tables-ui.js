@@ -122,6 +122,8 @@
         if (round) samples.push({ operation: "Large-note compatibility field initialization", enabled, ms: performance.now() - start, bytes: Buffer.byteLength(largeSource) });
       }
       for (let round = 0; round < 6; round++) {
+        remote.getCurrentWindow().show(); remote.getCurrentWindow().focus(); web.focus(); editor.focus(); await frame();
+        check(document.hasFocus() && editor.hasFocus && !editor.composing, "large-note editor is focused before native input");
         let inputStart, inputTrusted, record;
         const begin = event => { inputStart = performance.now(); inputTrusted = event.isTrusted; };
         const dispatch = editor.dispatch;
