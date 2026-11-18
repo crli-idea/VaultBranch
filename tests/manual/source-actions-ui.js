@@ -71,6 +71,11 @@
     const [latest, older] = await p.git.stashHistory(100); await p.refresh();
     check(/Pop/.test(source.stashButton.title), "clean sidebar explicitly labels its latest-stash action Pop");
     history = await p.openHistory(); const view = history.view;
+    const graphRows = [...view.bodyEl.querySelectorAll(".vaultbranch-history-row")];
+    check(graphRows.every(row => row.title && !row.title.includes("\n") && !row.hasAttribute("aria-label")), "graph rows have one compact native tooltip without a second Obsidian label tooltip");
+    const search = view.contentEl.querySelector(".vaultbranch-history-search"); search.value = "not-a-match"; search.dispatchEvent(new Event("input", { bubbles: true }));
+    check(graphRows.every(row => !row.hasAttribute("aria-label") && row.getAttribute("aria-description")), "graph search retains descriptive accessibility without recreating duplicate tooltips");
+    search.value = ""; search.dispatchEvent(new Event("input", { bubbles: true }));
     await click(view.bodyEl.querySelector(`[data-commit="${latest.hash}"]`));
     await wait(() => view.selected === latest.hash && !view.detailsEl.inert && view.detailsEl.querySelector(".vaultbranch-history-actions"));
     const pop = [...view.detailsEl.querySelectorAll(".vaultbranch-history-actions button")].find(node => /Pop/.test(node.textContent));

@@ -78,7 +78,7 @@ class HistoryView extends GitView {
         row.classList.toggle("is-stash", Boolean(commit.stash));
         row.dataset.search = `${commit.subject} ${commit.author} ${commit.hash} ${commit.refs}`.toLocaleLowerCase();
         row.classList.toggle("is-selected", this.selected === commit.hash);
-        row.title = `${commit.hash}\n${commit.author} · ${commit.date}\n${commit.subject}${commit.stashRef ? `\n${commit.stashRef}` : ""}`;
+        row.title = `${commit.short} · ${commit.subject}`;
         row.addEventListener("contextmenu", (event) => {
           event.preventDefault(); event.stopPropagation();
           const menu = new Menu();
@@ -128,10 +128,13 @@ class HistoryView extends GitView {
       const applySearch = () => {
         this.query = search.value;
         const query = this.query.trim().toLocaleLowerCase();
-        for (const row of rows) {
+        for (const [index, row] of rows.entries()) {
           const match = !query || row.dataset.search.includes(query);
           row.classList.toggle("is-dimmed", !match);
-          row.setAttribute("aria-label", `${match ? "" : t("非搜索匹配：")}${row.title}`);
+          // aria-label also triggers an Obsidian tooltip, duplicating title.
+          // Keep the name from visible content and extra metadata descriptive.
+          const commit = commits[index];
+          row.setAttribute("aria-description", `${match ? "" : t("非搜索匹配：")}${commit.hash} · ${commit.date}`);
         }
       };
       search.addEventListener("input", applySearch); applySearch();
