@@ -115,6 +115,10 @@ module.exports = class MyGitPlugin extends Plugin {
       return true;
     }
     await this.saveData(this.settings);
+    if (key === "historyColumnWidths") {
+      for (const view of this.views(HISTORY_VIEW)) view.updateColumnWidths?.();
+      return true;
+    }
     if (key === "conflictLocalFirst") {
       for (const view of this.views(CONFLICT_VIEW)) view.editor?.updateOrder();
       return true;

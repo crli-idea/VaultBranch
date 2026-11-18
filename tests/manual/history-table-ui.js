@@ -1,0 +1,107 @@
+(async () => {
+  if (app.vault.getName() !== "note_test") throw Error("Run only in note_test.");
+  const p = app.plugins.plugins.vaultbranch;
+  if (!p || [...p.editors.sessions.values()].some(s => s.dirty || s.saving)) throw Error("Save drafts first.");
+  await p.refreshTask; p.refreshSoon?.cancel();
+  const fs = require("node:fs/promises"), os = require("node:os"), path = require("node:path");
+  const exec = require("node:util").promisify(require("node:child_process").execFile);
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "vb-history-table-"));
+  const saved = { git: p.git, status: p.status, ready: p.ready, error: p.error, scheduleRefresh: p.scheduleRefresh, lastAutoRefresh: p.lastAutoRefresh, settings: { ...p.settings }, saveData: p.saveData };
+  const web = require("electron").remote.getCurrentWebContents(), debug = web.debugger, attached = debug.isAttached();
+  if (!attached) debug.attach("1.3");
+  const results = [], check = (ok, label) => { if (!ok) throw Error(label); results.push(label); };
+  const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const wait = async predicate => { const end = Date.now() + 10000; while (!predicate()) { if (Date.now() > end) throw Error("UI operation timed out"); await pause(15); } };
+  const git = async (...args) => (await exec(saved.git.binary, args, { cwd: root, windowsHide: true })).stdout;
+  const clipboard = navigator.clipboard, writeText = clipboard.writeText;
+  let leaf, reopened, fileHistory, copied, writes = 0;
+  const mouse = async (type, x, y, extra = {}) => debug.sendCommand("Input.dispatchMouseEvent", { type, x, y, ...extra });
+  const click = async node => {
+    node.scrollIntoView({ block: "nearest" }); await pause(30); const box = node.getBoundingClientRect(); let trusted;
+    node.addEventListener("click", event => { trusted = event.isTrusted; }, { once: true });
+    await mouse("mousePressed", box.x + box.width / 2, box.y + box.height / 2, { button: "left", clickCount: 1 });
+    await mouse("mouseReleased", box.x + box.width / 2, box.y + box.height / 2, { button: "left", clickCount: 1 });
+    await pause(30); check(trusted, "trusted native click");
+  };
+  try {
+    p.scheduleRefresh = () => {}; p.lastAutoRefresh = Date.now() + 3600000;
+    await git("init", "-b", "main"); await git("config", "user.name", "Table Author"); await git("config", "user.email", "table@example.invalid"); await git("config", "core.autocrlf", "false");
+    for (const [index, date] of ["2026-01-09T04:05:06+08:00", "2026-11-03T08:09:10+08:00", "2026-11-18T11:12:13+08:00"].entries()) {
+      await fs.writeFile(path.join(root, "note.md"), `version ${index}\n`); await git("add", "."); await git("commit", "-m", `Commit ${index}`, "--date=" + date);
+    }
+    p.git = new saved.git.constructor(root, { binary: saved.git.binary }); await p.git.init(); p.ready = true;
+    p.settings.historyColumnWidths = null;
+    leaf = await p.openView("vaultbranch-history", {}, app.workspace.getLeaf("tab"));
+    const view = leaf.view, rows = [...view.bodyEl.querySelectorAll(".vaultbranch-history-row")];
+    check(rows.length === 3 && rows.every(row => /^\d{4}\/\d{2}\/\d{2}$/.test(row.querySelector("time").textContent)), "graph dates have padded YYYY/MM/DD format");
+    check(rows.some(row => row.querySelector("time").textContent === "2026/01/09") && rows.some(row => row.querySelector("time").textContent === "2026/11/03"), "single-digit months and days stay padded");
+    check(!view.bodyEl.querySelector("button button"), "hash copy buttons are not nested in row buttons");
+    check(rows.every(row => row.querySelector(".vaultbranch-history-hash").getAttribute("title") === ""), "copy buttons suppress the parent tooltip while retaining their own accessible hint");
+    await click(rows[0]); await wait(() => view.selected === rows[0].dataset.commit && !view.detailsEl.inert);
+    let detailReads = 0, historyReads = 0;
+    const readDetail = p.git.commitFiles.bind(p.git), readHistory = p.git.historyData.bind(p.git);
+    p.git.commitFiles = (...args) => { detailReads++; return readDetail(...args); };
+    p.git.historyData = (...args) => { historyReads++; return readHistory(...args); };
+    clipboard.writeText = async text => { copied = text; };
+    const selected = view.selected, details = view.detailsEl.textContent, index = await fs.readFile(path.join(root, ".git/index"));
+    await click(rows[1].querySelector(".vaultbranch-history-hash"));
+    check(copied === rows[1].dataset.commit && copied.length === 40, "hash click copies the complete commit ID");
+    check(view.selected === selected && view.detailsEl.textContent === details && detailReads === 0, "copying another row's hash does not open or select that commit");
+    rows[1].focus();
+    await debug.sendCommand("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+    await debug.sendCommand("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+    await wait(() => view.selected === rows[1].dataset.commit && !view.detailsEl.inert);
+    check(detailReads === 1, "row Enter opens the selected commit exactly once");
+    const body = view.bodyEl, headings = body.querySelector(".vaultbranch-history-columns"), handles = [...headings.querySelectorAll(".vaultbranch-column-resizer")];
+    const widths = () => [...headings.children].slice(1).map(node => node.getBoundingClientRect().width);
+    const originalNodes = [...body.querySelectorAll(".vaultbranch-history-row")];
+    p.saveData = async value => { writes++; return saved.saveData.call(p, value); };
+    check(handles.length === 4, "all four data columns expose resize handles");
+    for (const [i, delta] of [-40, 20, -20, 30].entries()) {
+      handles[i].scrollIntoView({ block: "nearest", inline: "nearest" }); await pause(30);
+      const before = widths(), box = handles[i].getBoundingClientRect(), x = box.x + box.width / 2, y = box.y + box.height / 2;
+      let trusted; handles[i].addEventListener("pointerdown", event => { trusted = event.isTrusted; }, { once: true });
+      const count = writes;
+      await mouse("mousePressed", x, y, { button: "left", clickCount: 1 });
+      await mouse("mouseMoved", x + delta / 2, y, { button: "left", buttons: 1 });
+      await mouse("mouseMoved", x + delta, y, { button: "left", buttons: 1 });
+      check(writes === count, `column ${i}: pointer movement does not write settings`);
+      await mouse("mouseReleased", x + delta, y, { button: "left", clickCount: 1 });
+      await wait(() => writes === count + 1); await pause(30);
+      check(trusted && Math.abs(widths()[i] - before[i] - delta) < 2, `column ${i}: trusted drag moves its boundary by requested distance`);
+      check(originalNodes.every((node, n) => node === body.querySelectorAll(".vaultbranch-history-row")[n]), `column ${i}: resizing preserves row DOM`);
+    }
+    check(historyReads === 0 && detailReads === 1, "dragging columns performs no Git history or detail reads");
+    const headerCells = [...headings.children], rowCells = [...rows[0].children];
+    check(headerCells.every((cell, i) => Math.abs(cell.getBoundingClientRect().x - rowCells[i].getBoundingClientRect().x) < 2 && Math.abs(cell.getBoundingClientRect().width - rowCells[i].getBoundingClientRect().width) < 2), "resized headings and row cells stay aligned");
+    const oldWidth = body.style.width; body.style.width = "480px";
+    check(body.scrollWidth > body.clientWidth && getComputedStyle(rows[0].querySelector(".vaultbranch-history-author")).display !== "none", "narrow panes scroll horizontally and retain all four data columns");
+    body.style.width = oldWidth;
+    const savedWidths = p.settings.historyColumnWidths.slice();
+    const disk = await app.vault.readPluginData(p.manifest.dir);
+    check(JSON.stringify(disk.historyColumnWidths) === JSON.stringify(savedWidths), "column widths persist in plugin settings");
+    reopened = await p.openView("vaultbranch-history", {}, app.workspace.getLeaf("tab"));
+    check(reopened.view.bodyEl.style.getPropertyValue("--vaultbranch-history-template") === body.style.getPropertyValue("--vaultbranch-history-template"), "another graph view restores the same column widths");
+    const reopenedHead = reopened.view.bodyEl.querySelector(".vaultbranch-history-columns"), keyboardHandle = reopenedHead.querySelector(".vaultbranch-column-resizer");
+    keyboardHandle.focus(); const previous = p.settings.historyColumnWidths[0];
+    await debug.sendCommand("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowLeft", code: "ArrowLeft", windowsVirtualKeyCode: 37 });
+    await debug.sendCommand("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowLeft", code: "ArrowLeft", windowsVirtualKeyCode: 37 });
+    await wait(() => p.settings.historyColumnWidths[0] === previous - 5);
+    check(p.settings.historyColumnWidths[0] === previous - 5, "resize handle supports keyboard adjustment");
+    keyboardHandle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); await wait(() => p.settings.historyColumnWidths === null); await pause(30);
+    check(!body.style.getPropertyValue("--vaultbranch-history-template") && !reopened.view.bodyEl.style.getPropertyValue("--vaultbranch-history-template"), "reset restores fluid default columns in every open graph");
+    fileHistory = await p.openView("vaultbranch-file-history", { filePath: "note.md" }, app.workspace.getLeaf("tab"));
+    check([...fileHistory.view.contentEl.querySelectorAll(".vaultbranch-file-history-meta")].some(node => /^2026\/01\/09 \d{2}:\d{2}:\d{2}$/.test(node.textContent)), "file history uses the same padded date and 24-hour time");
+    check(index.equals(await fs.readFile(path.join(root, ".git/index"))), "copying and resizing leave index bytes unchanged");
+    if (window.__vbReleaseOptions?.outputDir) await fs.writeFile(path.join(window.__vbReleaseOptions.outputDir, "history-table.png"), (await web.capturePage()).toPNG());
+    return { results };
+  } finally {
+    clipboard.writeText = writeText; p.saveData = saved.saveData;
+    await fileHistory?.detach(); await reopened?.detach(); await leaf?.detach();
+    p.git = saved.git; p.status = saved.status; p.ready = saved.ready; p.error = saved.error; p.scheduleRefresh = saved.scheduleRefresh; p.lastAutoRefresh = saved.lastAutoRefresh;
+    p.settings = saved.settings; await p.saveData(p.settings); await p.refresh();
+    for (const open of app.workspace.getLeavesOfType("vaultbranch-history")) open.view.updateColumnWidths?.();
+    if (!attached && debug.isAttached()) debug.detach();
+    await fs.rm(root, { recursive: true, force: true });
+  }
+})()

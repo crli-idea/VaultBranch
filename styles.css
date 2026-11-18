@@ -147,9 +147,17 @@
 .vaultbranch-history-filter { max-width: 220px; font-size: 12px; }
 .vaultbranch-history-search { margin-left: auto; max-width: 210px; min-width: 90px; font-size: 12px; }
 .vaultbranch-history-body { flex: 1; min-height: 100px; overflow: auto; }
-.vaultbranch-history-columns, .workspace-leaf-content .vaultbranch-history-row { display: grid; grid-template-columns: var(--vaultbranch-graph-width, 70px) minmax(180px, 1fr) 95px 130px 80px; align-items: center; gap: 10px; min-width: 650px; }
+.vaultbranch-history-columns, .workspace-leaf-content .vaultbranch-history-row { display: grid; grid-template-columns: var(--vaultbranch-history-template, var(--vaultbranch-graph-width, 70px) minmax(180px, 1fr) 100px 130px 80px); align-items: center; gap: 10px; min-width: var(--vaultbranch-history-min-width, calc(var(--vaultbranch-graph-width, 70px) + 580px)); }
 .vaultbranch-history-columns { position: sticky; top: 0; z-index: 1; height: 30px; padding-right: 12px; border-bottom: 1px solid var(--background-modifier-border); background: var(--background-secondary); color: var(--text-muted); font-size: 11px; }
-.vaultbranch-history-columns span:first-child { padding-left: 10px; }
+.vaultbranch-history-columns > span:first-child { padding-left: 10px; }
+.vaultbranch-history-columns > span { position: relative; min-width: 0; }
+.vaultbranch-column-resizer { position: absolute; top: 0; bottom: 0; right: -9px; width: 8px; cursor: col-resize; touch-action: none; }
+.vaultbranch-column-resizer:hover, .vaultbranch-column-resizer:focus-visible { background: var(--background-modifier-border-hover); }
+.vaultbranch-history-body.is-resizing { cursor: col-resize; user-select: none; }
+.vaultbranch-history-graph-cell { align-self: stretch; display: flex; }
+.vaultbranch-history-commit { min-width: 0; }
+.workspace-leaf-content button.vaultbranch-history-hash { width: 100%; min-height: 0; height: auto; margin: 0; border: 0; box-shadow: none; text-align: left; font-family: var(--font-monospace); font-weight: normal; cursor: copy; overflow: hidden; text-overflow: ellipsis; }
+.workspace-leaf-content button.vaultbranch-history-hash:hover { color: var(--text-normal); }
 .workspace-leaf-content .vaultbranch-history-row { width: 100%; height: 36px; padding: 0 12px 0 0; border: 0; border-bottom: 1px solid var(--background-modifier-border-hover); border-radius: 0; box-shadow: none; background: transparent; font-size: var(--font-ui-small); font-weight: normal; text-align: left; }
 .workspace-leaf-content .vaultbranch-history-row.is-dimmed .vaultbranch-history-message, .workspace-leaf-content .vaultbranch-history-row.is-dimmed .vaultbranch-history-date, .workspace-leaf-content .vaultbranch-history-row.is-dimmed .vaultbranch-history-author, .workspace-leaf-content .vaultbranch-history-row.is-dimmed .vaultbranch-history-hash { opacity: .3; }
 .workspace-leaf-content .vaultbranch-history-row:hover, .workspace-leaf-content .vaultbranch-history-row.is-selected { background: var(--background-modifier-hover); }
@@ -345,12 +353,6 @@
 .vaultbranch-confirm-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
 .vaultbranch-confirm-actions button { min-height: 30px; padding: 5px 12px; font-size: var(--font-ui-small); }
 
-@media (max-width: 680px) {
-  .vaultbranch-history-columns,
-  .workspace-leaf-content .vaultbranch-history-row { grid-template-columns: var(--vaultbranch-graph-width, 70px) minmax(150px, 1fr) 80px 75px; min-width: 510px; }
-  .vaultbranch-history-columns span:nth-child(4),
-  .workspace-leaf-content .vaultbranch-history-row .vaultbranch-history-author { display: none; }
-}
 .vaultbranch-svg-mode:not([hidden]) {
   display: flex;
   flex-direction: column;

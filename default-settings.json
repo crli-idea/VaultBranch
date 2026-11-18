@@ -3,6 +3,7 @@
   "gitPath": "",
   "refreshSeconds": 5,
   "historyLimit": 100,
+  "historyColumnWidths": null,
   "pullMethod": "rebase",
   "openOnStartup": false,
   "commitMessage": "",

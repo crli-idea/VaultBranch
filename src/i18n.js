@@ -3,6 +3,10 @@
 // Chinese source strings are the fallback; tagged templates keep values out of translation keys.
 let language = "zh";
 const english = {
+  "调整{0}列宽": "Resize {0} column",
+  "拖动或用方向键调整；双击恢复默认列宽。": "Drag or use arrow keys to resize; double-click to reset column widths.",
+  "复制完整提交哈希": "Copy full commit hash",
+  "已复制完整提交哈希": "Full commit hash copied",
   "Drop 此 Stash…": "Drop this Stash…",
   "Drop 此 Stash": "Drop this Stash",
   "删除这条 Stash 记录，不恢复内容。工作区和暂存区保持不变。此操作无法在插件内撤销。": "Delete this Stash without restoring its contents. The worktree and index are unchanged. This cannot be undone in the plugin.",

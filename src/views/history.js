@@ -6,12 +6,14 @@ const { HISTORY_VIEW, el, button, GitView } = require("./shared.js");
 const { chooseBranch, createBranch } = require("../branches.js");
 
 const { drawGraph } = require("./graph.js");
+const { historyDate, applyColumnWidths, addColumnResizers, addCommitCopy } = require("./history-table.js");
 
 class HistoryView extends GitView {
   constructor(leaf, plugin) { super(leaf, plugin); this.limit = plugin.settings.historyLimit; this.selected = ""; this.query = ""; this.ref = ""; this.detailRequest = 0; }
   getViewType() { return HISTORY_VIEW; }
   getDisplayText() { return t("VaultBranch · 提交历史"); }
   getIcon() { return "git-fork"; }
+  updateColumnWidths() { if (this.bodyEl) applyColumnWidths(this.bodyEl, this.plugin.settings.historyColumnWidths); }
   getState() { return { ref: this.ref, query: this.query, selected: this.selected, limit: this.limit }; }
   async setState(state, result) {
     for (const key of ["ref", "query", "selected"]) if (typeof state[key] === "string") this[key] = state[key];
@@ -67,13 +69,17 @@ class HistoryView extends GitView {
       const width = Math.max(36, columns * 16 + 14);
       body.style.setProperty("--vaultbranch-graph-width", `${Math.max(width, 70)}px`);
       const headings = el(body, "div", "vaultbranch-history-columns");
-      for (const label of [t("分支图"), t("提交说明"), t("日期"), t("作者"), t("提交")]) el(headings, "span", "", label);
+      body.setAttribute("role", "grid"); body.setAttribute("aria-label", "Git Graph");
+      headings.setAttribute("role", "row");
+      for (const label of [t("分支图"), t("提交说明"), t("日期"), t("作者"), t("提交")]) el(headings, "span", "", label).setAttribute("role", "columnheader");
+      addColumnResizers(body, headings, this.plugin);
       const rows = [];
       const batch = document.createDocumentFragment();
       for (const commit of commits) {
-        const row = el(batch, "button", "vaultbranch-history-row");
+        const row = el(batch, "div", "vaultbranch-history-row");
         rows.push(row);
-        row.type = "button";
+        row.setAttribute("role", "row"); row.tabIndex = 0;
+        row.setAttribute("aria-selected", String(this.selected === commit.hash));
         row.dataset.commit = commit.hash;
         row.classList.toggle("is-stash", Boolean(commit.stash));
         row.dataset.search = `${commit.subject} ${commit.author} ${commit.hash} ${commit.refs}`.toLocaleLowerCase();
@@ -88,13 +94,19 @@ class HistoryView extends GitView {
           }
           menu.showAtMouseEvent(event);
         });
-        drawGraph(row, commit, width);
+        const graph = el(row, "div", "vaultbranch-history-graph-cell"); graph.setAttribute("role", "gridcell");
+        drawGraph(graph, commit, width);
         const text = el(row, "div", "vaultbranch-history-message");
+        text.setAttribute("role", "gridcell");
         el(text, "span", "vaultbranch-history-subject", commit.subject || t("（无说明）"));
         if (commit.refs) el(text, "span", "vaultbranch-history-refs", commit.refs);
-        el(row, "time", "vaultbranch-history-date", new Date(commit.date).toLocaleDateString());
-        el(row, "span", "vaultbranch-history-author", commit.author);
-        el(row, "code", "vaultbranch-history-hash", commit.short);
+        const date = el(row, "time", "vaultbranch-history-date", historyDate(commit.date));
+        date.dateTime = commit.date; date.setAttribute("role", "gridcell");
+        el(row, "span", "vaultbranch-history-author", commit.author).setAttribute("role", "gridcell");
+        addCommitCopy(row, commit);
+        row.addEventListener("keydown", event => {
+          if (event.target === row && ["Enter", " "].includes(event.key)) { event.preventDefault(); row.click(); }
+        });
         row.onclick = async () => {
           const detailRequest = ++this.detailRequest;
           details.inert = true;
@@ -104,7 +116,7 @@ class HistoryView extends GitView {
           catch (error) { failure = error; }
           if (detailRequest !== this.detailRequest || (this.bodyEl !== body && request !== this.request)) return;
           this.selected = commit.hash;
-          for (const item of rows) item.classList.toggle("is-selected", item === row);
+          for (const item of rows) { item.classList.toggle("is-selected", item === row); item.setAttribute("aria-selected", String(item === row)); }
           details.replaceChildren();
           el(details, "div", "vaultbranch-history-detail-title", `${commit.short} · ${commit.subject}`);
           const actions = el(details, "div", "vaultbranch-history-actions");

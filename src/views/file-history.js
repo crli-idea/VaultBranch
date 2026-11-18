@@ -1,5 +1,7 @@
 "use strict";
 
+const { historyDate } = require("./history-table.js");
+
 const { t } = require("../i18n.js");
 const { FILE_HISTORY_VIEW, GitView, el, button } = require("./shared.js");
 const { readOnlyMerge, updateCollapse, updateDiffNavigation } = require("./merge.js");
@@ -114,7 +116,7 @@ class FileHistoryView extends GitView {
         const text = el(row, "div", "vaultbranch-file-history-text");
         el(text, "div", "vaultbranch-file-history-subject", commit.subject);
         el(text, "div", "vaultbranch-file-history-meta", `${commit.short} · ${commit.author}`);
-        el(text, "div", "vaultbranch-file-history-meta", new Date(commit.date).toLocaleString(this.plugin.settings.language === "zh" ? "zh-CN" : "en"));
+        el(text, "div", "vaultbranch-file-history-meta", historyDate(commit.date, true));
         row.addEventListener("click", () => { void this.selectCommit(commit); });
         row.addEventListener("keydown", event => {
           const next = event.key === "ArrowDown" ? index + 1 : event.key === "ArrowUp" ? index - 1 : -1;
